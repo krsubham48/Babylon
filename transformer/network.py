@@ -18,7 +18,7 @@ import model_config as cfg
 # class
 
 class TransformerNetwork(object):
-    """
+    '''
     [GOTO: https://stackoverflow.com/a/35688187]
 
     The idea is that since we have an external embedding matrix, we can still use the
@@ -26,25 +26,34 @@ class TransformerNetwork(object):
     embedding matrix in memory and then assign it at runtime. Function assign_embeddings() does it.
 
     Update: all the architecture related values have been pushed to the model_config file
-    """
-    def __init__(self, scope):
+
+    Args:
+        scope: (str) scope of the model
+        is_training: (bool) whether the model is training
+    '''
+    def __init__(self, scope, is_training):
         self.scope = scope
 
-        # declaring the placeholders
-        self.q_plhdr = tf.placeholder(tf.float32, [None, cfg.DIM_MODEL], name = 'query_placeholder')
-        self.p_plhdr = tf.placeholder(tf.float32, [None, cfg.DIM_MODEL], name = 'passage_placeholder')
-        self.target_plhdr = tf.placeholder(tf.float32, [None, 1], name = 'target_placeholder')
-
         # operation values
+        self.is_training = is_training
+        cfg.OP_TRAINING = is_training
+
         self.global_step = 0
 
-        # build network
-        self.build_model()
+        # updated
+        self.save_freq = None
+        self.save_folder = None
 
     def build_model(self):
         '''
         function to build the model end to end
         '''
+
+        # declaring the placeholders
+        self.q_plhdr = tf.placeholder(tf.int32, [None, cfg.SEQLEN], name = 'query_placeholder')
+        self.p_plhdr = tf.placeholder(tf.int32, [None, cfg.SEQLEN], name = 'passage_placeholder')
+        self.target_plhdr = tf.placeholder(tf.float32, [None, 1], name = 'target_placeholder')
+
         with tf.variable_scope(self.scope):
             q_out = self.q_plhdr
             p_out = self.p_plhdr
@@ -56,7 +65,7 @@ class TransformerNetwork(object):
             # now the custom part
             ff_out = tf.layers.dense(p_out, cfg.FINAL_FF_MID1, activation = tf.nn.relu)
             ff_out = tf.layers.dense(ff_out, cfg.FINAL_FF_MID2)
-            self.pred = tf.layers.dense(ff_out, 1, activation = tf.nn.tanh)
+            self.pred = tf.layers.dense(ff_out, 1, activation = tf.nn.sigmoid)
 
     def construct_padding_mask(self, inp):
         '''
@@ -82,6 +91,7 @@ class TransformerNetwork(object):
         embedding_init = self.embedding_matrix.assign(embedding_placeholder)
         self.sess.run(embedding_init, feed_dict: {embedding_placeholder: emb})
 
+    def 
 
 
 
