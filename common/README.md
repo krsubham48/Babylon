@@ -2,7 +2,28 @@
 
 These are all the functions and utilities that are common to all the models. 
 
-## Files
+## Running
+
+The following are the commands that should be run to get the final data:
+
+```bash
+$ python3 glove2npy --file-path=path/to/glove.txt --output-name=path/to/name --num-unk=20
+$ python3 get_final_data.py --training=False --text-file=path/to/train.txt --output-name=path/to/output --num-unk=20
+```
+
+NOTE: `--num-unk` in both the files should be same, otherwise can cause error or give bad results
+
+## Output
+
+The output of the opration above is generation of multiple `.npy` dumps. The structure of each dump is as follows:
+
+```
+Query: [12, 33, 123, 43] x 10, [122, 95, 932, 532, 2234, 23] x 10 ... ]
+Passages: [123, 95, 42, 90, 9923, 934, 853, 1245, 1239], ... ]
+labels: [0, 0, 0, 1, 0, 0, 0, 0, 0, 0 ... ]
+```
+
+## File Documentation
 
 This folder has following files:
 
@@ -34,4 +55,19 @@ This folder has following files:
 ```
 --file-path:    path to training file
 --output-name:  data file is output_name.npy, word file as output_name_words.txt
+--num-unk:      number of unique word tokens
+```
+
+4. `get_final_data.py`: The file to get the final data. Following is the list of arguments:
+
+```
+--training:     training mode (dumps labels also)
+--text-file:    path to text file
+--output-name:  output is output_name_xx.npy
+--num-unk:      number of unique tokens
+--buffer-size:  size of each buffer
+--max-querylen: maximum query length
+--min-querylen: minimum query length
+--max-passlen:  maximum passage length
+--min-passlen:  minimum passage length
 ```

@@ -33,34 +33,47 @@ STOPWORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you',
             "mustn't", 'needn', "needn't", 'shan', "shan't", 'shouldn', "shouldn't", 'wasn',
             "wasn't", 'weren', "weren't", 'won', "won't", 'wouldn', "wouldn't"]
 
+def save_npy(filepath, arr):
+    # save numpy array
+    np.save(filepath, arr)
+
 def get_word2idx(filepath):
+    # get word2idx
     f = open(filepath)
     words = f.readlines()
     word2idx = dict((w, i) for i,w in enumerate(words))
     return word2idx
 
 def cvt_srt2id(inp, word2idx, min_seqlen, max_seqlen):
+    # convert string to list of ID
     words = re.split('\W', inp)
     words = [w for w in words if w and w not in STOPWORDS]
+    sent_embd = []
+    if min_seqlen <= len(words):
+        if len(words) < max_seqlen + 1:
+            words = words[:max_seqlen]
+        for w in words:
+            if w not in word2idx:
+                w = '<UNK_{0}>'.format(str(np.random.randint(num_unk)))
+            embd = word2idx[w]
+            sent_embd.append(embd)
 
-    sent_ids = [word2idx[w] for w in words if w in word2idx else w = '<UNK_{0}>'.format(str(np.random.randint()))]
+        return sent_embd
+    
+    return None
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--training', type = bool, default = False, help = 'training mode')
     parser.add_argument('--text-file', type = str, help = 'path to text file')
-    parser.add_argument('--embeddings', type = str, help = 'path to embeddings file')
-    parser.add_argument('--output-name', type = str,
-        help = 'data file is output_name.npy, word file as output_name_words.txt')
-    parser.add_argument('--num_unk', type = str, help = 'path to embeddings file')
-    parser.add_argument('--max-querylen', type = int, default = 12,
-        help = 'maximum query length')
-    parser.add_argument('--min-querylen', type = int, default = 2,
-        help = 'minimum query length')
-    parser.add_argument('--max-passlen', type = int, default = 80,
-        help = 'maximum passage length')
-    parser.add_argument('--min-passlen', type = int, default = 10,
-        help = 'minimum passage length')
+    parser.add_argument('--output-name', type = str, default = './dump', help = 'output is output_name_xx.npy')
+    parser.add_argument('--num-unk', type = str, help = 'number of unique tokens')
+    parser.add_argument('--buffer-size', type = int, default = 1000000, help = 'size of each buffer')
+    parser.add_argument('--max-querylen', type = int, default = 12, help = 'maximum query length')
+    parser.add_argument('--min-querylen', type = int, default = 2, help = 'minimum query length')
+    parser.add_argument('--max-passlen', type = int, default = 80, help = 'maximum passage length')
+    parser.add_argument('--min-passlen', type = int, default = 10, help = 'minimum passage length')
     args = parser.parse_args()
 
     '''
@@ -70,33 +83,46 @@ if __name__ == '__main__':
 
     query_buffer = []
     passages_buffer = []
-    _labels = []
+    labels_buffer = []
 
     # number of lines processed
     num_line = 0
+    num_buffer = 0
 
     while True:
         num_line += 1
 
         line = file.readline()
         if not line:
+            # if last then dump
+            save_npy(args.output_name + '_q{0}.npy'.format(num_buffer), np.array(query_buffer))
+            save_npy(args.output_name + '_p{0}.npy'.format(num_buffer), np.array(passages_buffer))
+            if not args.training:
+                save_npy(args.output_name + '_l{0}.npy'.format(num_buffer), np.array(labels_buffer))
             break
 
         tokens = line.split(' ').lower().split('\t')
-        query_id, query, passage, label = tokens[0], tokens[1], tokens[2], tokens[3]
-        
+        query, passage = tokens[1], tokens[2]
+        if not args.training:
+            label = tokens[3]
 
+        query2ids = cvt_srt2id(query, word2idx, args.min_querylen, args.max_querylen)
+        passage2ids = cvt_srt2id(passage, word2idx, args.min_passlen, args.max_passlen)
+        if query and passage:
+            query_buffer.append(query2ids)
+            passages_buffer.append(passage2ids)
+            if not args.training:
+                labels_buffer.append(float(label))
 
+        # if length of buffers exceed
+        if len(query_buffer) == args.buffer_size:
+            save_npy(args.output_name + '_q{0}.npy'.format(num_buffer), np.array(query_buffer))
+            save_npy(args.output_name + '_p{0}.npy'.format(num_buffer), np.array(passages_buffer))
+            if not args.training:
+                save_npy(args.output_name + '_l{0}.npy'.format(num_buffer), np.array(labels_buffer))
 
-
-
-
-
-
-
-
-
-
-
-
-
+            # reset buffer
+            query_buffer = []
+            passages_buffer = []
+            labels_buffer = []
+            num_buffer += 1
