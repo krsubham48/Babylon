@@ -8,12 +8,12 @@ DIM_QUERY = None
 DIM_KEY = None
 DIM_VALUE = None
 FF_MID = None
-
-MAX_LEN_QUERY = None
-MAX_LEN_PASS = None
-
+SEQLEN = None
 NUM_STACKS = None
 NUM_HEADS = None
 
 # operation
 OP_TRAINING = True
+
+# model parameters
+MODEL_NAME = None

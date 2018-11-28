@@ -14,8 +14,7 @@ import os
 # custom model
 import network
 
-def load_numpy_array(filepath):
-	return np.load(filepath)
+
 
 def get_wordIds(filepath):
 	'''
@@ -34,13 +33,13 @@ def get_wordIds(filepath):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--training-file', type = str, help = 'path to training text file')
-
-    parser.add_argument('--embedding-path', type = str, help = 'path to embedding .npy file')
-    parser.add_argument('--all-words', type = str, help = 'path to words.txt file')
-    parser.add_argument('--model-folder', type = str, help = 'path to folder where saving model')
-
+	parser.add_argument('--p-file', type = str, help = 'path to passage numpy dump')
+	parser.add_argument('--q-file', type = str, help = 'path to query numpy dump')
+	parser.add_argument('--l-file', type = str, help = 'path to labels numpy dump')
+	parser.add_argument('--emb-file', type = str, help = 'path to ambedding matrix')
+    parser.add_argument('--save-folder', type = str, help = 'path to folder where saving model')
     parser.add_argument('--model-name', type = str, default = 'Babylon', help = 'name of the model')
+    parser.add_argument('--val-split', type = float, default = 0.1, help = 'validation split ratio')
     parser.add_argument('--save-frequency', type = int, default = 10, help = 'save model after these steps')
     args = parser.parse_args()
 
@@ -54,15 +53,18 @@ if __name__ == '__main__':
     # make the folders
 	if not os.path.exists(args.model_folder):
 		os.makedirs(args.model_folder)
-		print('[!] Model saving folder could not be found, making folder, {args.model_folder}')
+		print('[!] Model saving folder could not be found, making folder ', args.model_folder)
 
 	# load training sentences and
 
 	'''
 	Step 2: All the defaults are done now, everything is ready to make the model
 	'''
-	word2idx = get_wordIds(args.all_words)
-	word_embeddings = load_numpy_array(args.embedding_path)
+	# load the training numpy matrix
+	train_p = load_numpy_array(args.p_file)
+	train_q = load_numpy_array(args.q_file)
+	train_l = load_numpy_array(args.l_file)
+	embedding_matrix = load_numpy_array(args.emb_file)
 
 	# load the model, this is one line that will be changed for each case
 	model = network.TransformerNetwork(args.model_name)
@@ -71,8 +73,7 @@ if __name__ == '__main__':
 	model.save_freq = args.save_frequency
 	model.save_folder = args.model_folder
 
-	# model.build_model(...)
-	# model.initialize_embeddings(word_embeddings)
+	model.build_model(word_embeddings, ...)
 
 	# choosing to train inside the class itself
 	# model.train(X, Y, word2idx, verbosity, ...) 
