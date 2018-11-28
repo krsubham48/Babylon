@@ -12,6 +12,7 @@ Output array: [<PAD>, <PAD> ... (seqlen - input_len), 32, 42, 1, 32, 54, 909 ]
 
 import argparse
 import numpy as np
+from sklearn.utils import shuffle
 
 STOPWORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're",
             "you've", "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he',
@@ -50,11 +51,11 @@ def cvt_srt2id(inp, word2idx, min_seqlen, max_seqlen):
     words = [w for w in words if w and w not in STOPWORDS]
     sent_embd = []
     if min_seqlen <= len(words):
-        if len(words) < max_seqlen + 1:
+        if len(words) > max_seqlen + 1:
             words = words[:max_seqlen]
         for w in words:
             if w not in word2idx:
-                w = '<UNK_{0}>'.format(str(np.random.randint(num_unk)))
+                w = '<UNK_{0}>'.format(str(np.random.randint(num_unk+1)))
             embd = word2idx[w]
             sent_embd.append(embd)
 
@@ -62,24 +63,74 @@ def cvt_srt2id(inp, word2idx, min_seqlen, max_seqlen):
     
     return None
 
+def save_data(q_buf, p_buf, l_buf = None, shfl = True, trn):
+    if trn:
+        # shfl and trn or trn = shfl
+        print("[!] Performing shuffling of data... (this may take some time)")
+        
+        # convert to numpy arrays
+        q_buf = np.array(q_buf)
+        p_buf = np.array(p_buf)
+        l_buf = np.array(l_buf)
+
+        if shfl:
+            # shuffle the values
+            q_buf, p_buf, l_buf = shuffle(q_buf, p_buf, l_buf)
+
+        q_path = args.output_name + '_q{0}.npy'.format(num_buffer)
+        print("[*]Saving file...", q_path)
+        save_npy(q_path, q_buf)
+
+        p_path = args.output_name + '_p{0}.npy'.format(num_buffer)
+        print("[*]Saving file...", p_path)
+        save_npy(p_path, p_buf)
+
+        l_path = args.output_name + '_l{0}.npy'.format(num_buffer)
+        print("[*]Saving file...", l_path)
+        save_npy(l_path, l_buf)
+
+    else:
+        print("[!] Performing shuffling of data... (this may take some time)")
+        
+        # convert to numpy arrays
+        q_buf = np.array(q_buf)
+        p_buf = np.array(p_buf)
+
+        if shlf:
+            # shuffle the values
+            q_buf, p_buf = shuffle(q_buf, p_buf)
+
+        q_path = args.output_name + '_q{0}.npy'.format(num_buffer)
+        print("[*]Saving file...", q_path)
+        save_npy(q_path, q_buf)
+
+        p_path = args.output_name + '_p{0}.npy'.format(num_buffer)
+        print("[*]Saving file...", p_path)
+        save_npy(p_path, p_buf)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--training', type = bool, default = False, help = 'training mode')
-    parser.add_argument('--text-file', type = str, help = 'path to text file')
+    parser.add_argument('--training-mode', type = bool, default = False, help = 'training mode')
+    parser.add_argument('--input-file', type = str, help = 'path to text file')
     parser.add_argument('--output-name', type = str, default = './dump', help = 'output is output_name_xx.npy')
-    parser.add_argument('--num-unk', type = str, help = 'number of unique tokens')
+    
+    # shuffling is only done when in training mode, there is no need to do it in evaluation mode
+    # otherwise we will have to store the hashing as well
+    parser.add_argument('--shuffle', type = bool, default = True, help = 'to shuffle the data')
+
+    parser.add_argument('--num-unk', type = str, default = 30, help = 'number of unique tokens')
     parser.add_argument('--buffer-size', type = int, default = 1000000, help = 'size of each buffer')
-    parser.add_argument('--max-querylen', type = int, default = 12, help = 'maximum query length')
-    parser.add_argument('--min-querylen', type = int, default = 2, help = 'minimum query length')
-    parser.add_argument('--max-passlen', type = int, default = 80, help = 'maximum passage length')
-    parser.add_argument('--min-passlen', type = int, default = 10, help = 'minimum passage length')
+    parser.add_argument('--max-qlen', type = int, default = 12, help = 'maximum query length')
+    parser.add_argument('--min-qlen', type = int, default = 2, help = 'minimum query length')
+    parser.add_argument('--max-plen', type = int, default = 80, help = 'maximum passage length')
+    parser.add_argument('--min-plen', type = int, default = 10, help = 'minimum passage length')
     args = parser.parse_args()
 
     '''
-    load the text and prerocess it
+    load the text and preprocess it
     '''
-    file = open(args.text_file)
+    file = open(args.input_file)
 
     query_buffer = []
     passages_buffer = []
@@ -95,34 +146,36 @@ if __name__ == '__main__':
         line = file.readline()
         if not line:
             # if last then dump
-            save_npy(args.output_name + '_q{0}.npy'.format(num_buffer), np.array(query_buffer))
-            save_npy(args.output_name + '_p{0}.npy'.format(num_buffer), np.array(passages_buffer))
-            if not args.training:
-                save_npy(args.output_name + '_l{0}.npy'.format(num_buffer), np.array(labels_buffer))
+            save_data(query_buffer, passages_buffer, labels_buffer, args.shuffle, args.training_mode)
+            print("...this was the last dump, exiting from the loops now")
             break
 
+        # If not the last line then proceed
         tokens = line.split(' ').lower().split('\t')
         query, passage = tokens[1], tokens[2]
         if not args.training:
             label = tokens[3]
 
-        query2ids = cvt_srt2id(query, word2idx, args.min_querylen, args.max_querylen)
-        passage2ids = cvt_srt2id(passage, word2idx, args.min_passlen, args.max_passlen)
-        if query and passage:
+        # convert strings to ID
+        query2ids = cvt_srt2id(query, word2idx, args.min_qlen, args.max_qlen)
+        passage2ids = cvt_srt2id(passage, word2idx, args.min_plen, args.max_plen)
+
+        # add to data if conditions in cvt_srt2id satisfied
+        if query2ids and passage2ids:
             query_buffer.append(query2ids)
             passages_buffer.append(passage2ids)
             if not args.training:
                 labels_buffer.append(float(label))
 
-        # if length of buffers exceed
+        # if length of buffers exceeds given buffer size
         if len(query_buffer) == args.buffer_size:
-            save_npy(args.output_name + '_q{0}.npy'.format(num_buffer), np.array(query_buffer))
-            save_npy(args.output_name + '_p{0}.npy'.format(num_buffer), np.array(passages_buffer))
-            if not args.training:
-                save_npy(args.output_name + '_l{0}.npy'.format(num_buffer), np.array(labels_buffer))
+
+            save_data(query_buffer, passages_buffer, labels_buffer, args.shuffle, args.training_mode)
 
             # reset buffer
             query_buffer = []
             passages_buffer = []
             labels_buffer = []
             num_buffer += 1
+
+    print("[*]... execution completed, Exiting!")

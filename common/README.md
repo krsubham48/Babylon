@@ -4,7 +4,7 @@ These are all the functions and utilities that are common to all the models.
 
 ## Running
 
-The following are the commands that should be run to get the final data:
+What we are doing here is that we first convert the given glove embeddings to numpy dump and obtain the word list from it. Next we take the text and convert them into the format given in Output below. The following are the commands that should be run to get the final data:
 
 ```bash
 $ python3 glove2npy --file-path=path/to/glove.txt --output-name=path/to/name --num-unk=20
@@ -25,32 +25,9 @@ labels: [0, 0, 0, 1, 0, 0, 0, 0, 0, 0 ... ]
 
 ## File Documentation
 
-This folder has following files:
+This folder has following files: (RED) means redundant.
 
-1. `split_data.py`: The file to split and dump the data in smaller files of input number of lines. Following is the list of arguments:
-
-```
-  --file-path:      path to training file
-  --output-name:    prefix for output file name, training file is output_name_train.txt
-  --num-sentences:  number of sentences in output training file
-  --ratio:          split ratio (val/total)
-  --randomize:      to randomise data. if True random points are selected
-```
-
-2. `tex2ctf_mod.py`: The file to dump the data in Microsoft CNTK format. This is the modified version of file in `/baselines`. Following is the list of arguments:
-
-```
---mode:           operation mode, FULL for complete dump, SAMPLE for first 3000 lines
---train-file:     path to training file
---valid-file:     path to validation file
---eval-file:      path to evaluation file
---glove-file:     path to glove emdedding file
---max-query-len:  maximum length of query to be processed
---max-pass-len:   maximum length of passage to be processed
---prefix:         prefix for this dump iteration
---verbose:        verbosity, (True for yes)
-```
-3. `glove2npy.py`: The file to convert the given glove files to numpy format `*.npy` file. Following is the list of arguments:
+1. `glove2npy.py`: The file to convert the given glove files to numpy format `*.npy` file. Following is the list of arguments:
 
 ```
 --file-path:    path to training file
@@ -58,7 +35,7 @@ This folder has following files:
 --num-unk:      number of unique word tokens
 ```
 
-4. `get_final_data.py`: The file to get the final data. Following is the list of arguments:
+2. `get_final_data.py`: The file to get the final data. Following is the list of arguments:
 
 ```
 --training:     training mode (dumps labels also)
@@ -70,4 +47,28 @@ This folder has following files:
 --min-querylen: minimum query length
 --max-passlen:  maximum passage length
 --min-passlen:  minimum passage length
+```
+
+3. `split_data.py`: (RED) The file to split and dump the data in smaller files of input number of lines. Following is the list of arguments:
+
+```
+  --file-path:      path to training file
+  --output-name:    prefix for output file name, training file is output_name_train.txt
+  --num-sentences:  number of sentences in output training file
+  --ratio:          split ratio (val/total)
+  --randomize:      to randomise data. if True random points are selected
+```
+
+4. `tex2ctf_mod.py`: (RED) The file to dump the data in Microsoft CNTK format. This is the modified version of file in `/baselines`. Following is the list of arguments:
+
+```
+--mode:           operation mode, FULL for complete dump, SAMPLE for first 3000 lines
+--train-file:     path to training file
+--valid-file:     path to validation file
+--eval-file:      path to evaluation file
+--glove-file:     path to glove emdedding file
+--max-query-len:  maximum length of query to be processed
+--max-pass-len:   maximum length of passage to be processed
+--prefix:         prefix for this dump iteration
+--verbose:        verbosity, (True for yes)
 ```

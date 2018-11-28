@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser.add_argument('--file-path', type = str, help = 'path to training file')
     parser.add_argument('--output-name', type = str,
         help = 'data file is output_name.npy, word file as output_name_words.txt')
-    parser.add_argument('--num-unk', type = int, help = 'number of unique word tokens')
+    parser.add_argument('--num-unk', type = int, default = 30, help = 'number of unique word tokens')
     args = parser.parse_args()
 
     # open the file
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     print('Number of buffers handled:', num_lines_processed)
     embeddings_ = np.array(embeddings_)
 
-    print('[*] Shape of the final embedding matrix:',embeddings_.shape)
+    print('[*] Shape of the final embedding matrix:', embeddings_.shape)
     print('[!] Saving matrix at:', args.output_name + '.npy')
 
     np.save(args.output_name + '.npy', embeddings_)
