@@ -24,9 +24,30 @@ The transformer network has the following files:
 
 2. `utils.py`: Util functions and DataManager class for easier handling of training data.
 
-3. `train.py`: File to train the model using training files. [Development]
+3. `train.py`: File to train the model using training files. It has following arguments: [Development]
 
-4. `eval.py`: File to run the model for obtaining results on evaluation file. [Development]
+```
+--p-file:         path to passage numpy dump
+--q-file:         path to query numpy dump
+--l-file:         path to labels numpy dump
+--emb-file:       path to ambedding matrix
+--save-folder:    path to folder where saving model
+--num-epochs:     number fo epochs for training
+--model-name:     name of the model
+--val-split:      validation split ratio
+--save-frequency: save model after these steps
+```
+
+4. `eval.py`: File to run the model for obtaining results on evaluation file. It has following arguments: [Development]
+
+```
+--eval-file:      path to evaluation file
+--embedding-path: path to embedding .npy file
+--all-words:      path to words.txt file
+--query-ids:      path to list of IDs for query and passages
+--model-path:     path to folder where saving model
+--results-path:   path to folder where saving results
+```
 
 5. REDUNDANT, `model_config.py`: Configuration values to run the model and operate it end to end. Moved all the values to the network class making handling easier.
 

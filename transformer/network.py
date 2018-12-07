@@ -365,15 +365,16 @@ class TransformerNetwork(object):
              passage_,
              query_ids,
              file_path):
-    '''
-    Function to run the model and store the results in file_path
-    Args:
-        queries_: numpy array for queries
-        passage_: numpy array for passages
-        query_ids: IDs for corresponding queries, needed to store the results
-        file_path: location of file to store results
-    '''
-    pass
+        '''
+        Function to run the model and store the results in file_path
+        Args:
+            queries_: numpy array for queries
+            passage_: numpy array for passages
+            query_ids: IDs for corresponding queries, needed to store the results
+            file_path: location of file to store results
+        '''
+        
+        pass
 
     def train(self,
               queries_,
