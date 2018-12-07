@@ -13,7 +13,17 @@ Cheers!
 # importing the dependencies 
 import model_config as cfg
 
-# functions
+##### FUNCTIONAL LAYERS #####
+
+def get_embeddings(emb, inp):
+    '''
+    Get embedding value
+    '''
+    with tf.variable_scope('positional_encoding'):
+        return tf.nn.embedding_lookup(emb, inp)
+
+##### CORE LAYERS #####
+
 def sdpa(Q, K, V, mask = None):
     '''
     Scaled Dot Product Attention
@@ -72,12 +82,12 @@ def multihead_attention(query, key, value, mask = None, scope = 'attention'):
 
     return out_linear
 
-def feed_forward(x):
+def feed_forward(x, scope = 'ff'):
     '''
     Position-wise feed forward network, applied to each position seperately
     and identically. Can be implemented as follows
     '''
-    with tf.variable_scope('ff'):
+    with tf.variable_scope(scope):
         out = tf.layers.conv1d(x, filters = cfg.FF_MID, kernel_size = 1,
             activation = tf.nn.relu)
         out = tf.layers.conv1d(out, filters = cfg.DIM_MODEL, kernel_size = 1)
@@ -114,11 +124,8 @@ def passage_stack(p_in, q_out, input_mask, target_mask, scope):
         q_out: output from query stack
     '''
     with tf.variable_scope(scope):
-        out = layer_norm(p_in + multihead_attention(p_in, p_in, p_in,
-                                                mask = target_mask,
-                                                scope = 'self_attn'))
-        out = layer_norm(out + multihead_attention(out, out, q_out,
-                                                mask = input_mask))
+        out = layer_norm(p_in + multihead_attention(p_in, p_in, p_in, mask = target_mask))
+        out = layer_norm(out + multihead_attention(out, out, q_out, mask = input_mask))
         out = layer_norm(out + feed_forward(out))
 
     return out
