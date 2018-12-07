@@ -37,6 +37,7 @@ if __name__ == '__main__':
 	parser.add_argument('--eval-file', type = str, help = 'path to evaluation file')
     parser.add_argument('--embedding-path', type = str, help = 'path to embedding .npy file')
     parser.add_argument('--all-words', type = str, help = 'path to words.txt file')
+    parser.add_argument('--query-ids', type = str, help = 'path to list of IDs for query and passages')
     parser.add_argument('--model-path', type = str, help = 'path to folder where saving model')
     parser.add_argument('--results-path', type = str, help = 'path to folder where saving results')
     args = parser.parse_args()
@@ -54,14 +55,34 @@ if __name__ == '__main__':
 		print('[!] Model saving folder could not be found, making folder, {args.model_folder}')
 
 	'''
-	Step 2: All the defaults are done now, everything is ready to make the model
-	'''
-	word2idx = get_wordIds(args.all_words)
-	word_embeddings = load_numpy_array(args.embedding_path)
+    Step 2: All the checks are done, make the model
+    '''
 
-	# load the model, this is one line that will be changed for each case
-	model = network.TransformerNetwork(args.model_name, is_training)
-	model.load_model(args.model_path)
+    # load the training numpy matrix
+    train_q = load_numpy_array(args.q_file)
+    train_p = load_numpy_array(args.p_file)
+    train_l = load_numpy_array(args.l_file)
+    embedding_matrix = load_numpy_array(args.emb_file)
 
-	# model.initialize_embeddings(word_embeddings)
-	# model.eval_score(args.)
+    # load the model, this is one line that will be changed for each case
+    model = network.TransformerNetwork(scope = args.model_name,
+                                       save_folder = args.save_folder,
+                                       pad_id = pad_id,,
+                                       is_training = is_training,
+                                       dim_model = 50,
+                                       ff_mid = 128,
+                                       ff_mid1 = 128,
+                                       ff_mid2 = 128,
+                                       num_stacks = 2,
+                                       num_heads = 5)
+
+    '''
+    Step 3: Train the model
+    '''
+
+    # train the model
+    model.eva(queries_ = train_q,
+              passage_ = train_p,
+              query_ids = args.query_ids,
+              output_file = args.results_path)
+

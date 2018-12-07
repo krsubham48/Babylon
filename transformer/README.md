@@ -38,7 +38,7 @@ There also are some jupyter notebooks in the `/notebooks` folder. They are merel
 
 ### Download the model
 
-You can download the model from this [folder]() `NOTTHING RIGHT NOW`
+You can download the model from this [folder]() `NOTHING RIGHT NOW`
 
 ## Update Log
 

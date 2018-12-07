@@ -40,11 +40,10 @@ class TransformerNetwork(object):
     '''
     def __init__(self,
         scope,
-        model_name,
         save_folder,
         pad_id,
-        save_freq = 10,
         is_training = True,
+        save_freq = 10,
         dim_model = 50,
         ff_mid = 128,
         ff_mid1 = 128,
@@ -54,11 +53,10 @@ class TransformerNetwork(object):
         '''
         Args:
             scope: scope of graph
-            model_name: name for model
             save_folder: folder for model saves
             pad_id: integer of <PAD>
-            save_freq: frequency of saving
             is_training: bool if network is in training mode
+            save_freq: frequency of saving
             dim_model: same as embedding dimension
             ff_mid: dimension in middle layer of inner feed forward network
             ff_mid1: dimension in middle layer of outer feed forward network (L1)
@@ -68,11 +66,10 @@ class TransformerNetwork(object):
 
         '''
         self.scope = scope
-        self.model_name = model_name
         self.save_folder = save_folder
         self.pad_id = pad_id
-        self.save_freq = save_freq
         self.is_training = is_training
+        self.save_freq = save_freq
     
         self.dim_model = dim_model
         self.ff_mid = ff_mid
@@ -170,7 +167,7 @@ class TransformerNetwork(object):
                 print('[*] loss:', self._loss)
                 print('... Done!')
 
-        with tf.variable_scope(self.model_name + "_summary"):
+        with tf.variable_scope(self.scope + "_summary"):
             tf.summary.scalar("loss", self._loss)
             tf.summary.scalar("accuracy", self._accuracy)
             self.merged_summary = tf.summary.merge_all()
@@ -333,18 +330,57 @@ class TransformerNetwork(object):
         '''
         pass
 
+    def load_model(self):
+        '''
+        Function to load the frozen graph of model and make the ops placeholders
+        '''
+        assert self.is_training == False
+        pass
+
     def save_model(self):
         '''
         function to save the model
         '''
-        save_path = self.save_folder + '/' + self.model_name + '.ckpt'
+        save_path = self.save_folder + '/' + self.scope + '.ckpt'
         self.saver.save(self.sess, save_path)
+
+
+    def print_network(self):
+        '''
+        Print the network in terms of 
+        '''
+        network_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope = self.scope)
+        for x in network_variables:
+            print(x)
+
+    '''
+    OPERATION
+    =========
+
+    Following functions are related to the operation of the model namely, training and evaluation
+    '''
+
+    def eval(self,
+             queries_,
+             passage_,
+             query_ids,
+             file_path):
+    '''
+    Function to run the model and store the results in file_path
+    Args:
+        queries_: numpy array for queries
+        passage_: numpy array for passages
+        query_ids: IDs for corresponding queries, needed to store the results
+        file_path: location of file to store results
+    '''
+    pass
 
     def train(self,
               queries_,
               passage_,
-              label_,,
-              num_epochs = 50):
+              label_,
+              num_epochs = 50,
+              val_split = 0.1):
         '''
         This is the function used to train the model.
         Args:
@@ -398,11 +434,3 @@ class TransformerNetwork(object):
             Add the stats to tensorboard output. Note that there alead is a function self.merge_all but I don't know
             how to use this.
             '''
-
-    def print_network(self):
-        '''
-        Print the network in terms of 
-        '''
-        network_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope = self.scope)
-        for x in network_variables:
-            print(x)
