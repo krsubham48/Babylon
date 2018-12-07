@@ -163,7 +163,7 @@ class TransformerNetwork(object):
                 )
 
             optim = tf.train.AdamOptimizer(beta1 = 0.9, beta2 = 0.98, epsilon = 1e-9)
-            self._train = optim.minimize(self._loss)
+            self._train_step = optim.minimize(self._loss)
             
             if self.print_stack:
                 print('[*] accuracy:', self._accuracy)
@@ -302,7 +302,7 @@ class TransformerNetwork(object):
         '''
         with tf.variable_scope(scope):
             out = self.layer_norm(p_in + self.multihead_attention(p_in, p_in, p_in, mask = passage_mask))
-            out = self.layer_norm(out + self.multihead_attention(out, out, q_out, mask = query_mask, scope = 'attn2'))
+            out = self.layer_norm(out + self.multihead_attention(out, out, q_out, mask = query_mask, scope = 'enc_attn'))
             out = self.layer_norm(out + self.feed_forward(out))
 
         return out
@@ -328,7 +328,7 @@ class TransformerNetwork(object):
 
     def make_tf_iterators(self, q, p, l):
         '''
-        since loading via tensorflows build-in functions can significantly boost speed,
+        since loading via tensorflow's build-in functions can significantly boost speed,
         trying to make something similar here.
         '''
         pass
@@ -364,18 +364,40 @@ class TransformerNetwork(object):
         self.saver = tf.train.Saver()
 
         for ep in range(num_epochs):
-            for batch_num in dm.get_num_batches():
+            batch_loss = []
+            batch_accuracy = []
+
+            # iterate over all the batches
+            for batch_num in range(dm.get_num_batches()):
                 # for each epoch, go over the entire dataset once
-                q_batch, p_batch, l_batch = dm.get_batch(self.batch_size)
+                b_query, b_passage, b_label = dm.get_batch(self.batch_size)
 
                 # pad the sequences
-                q_batch = add_padding(q_batch, self.pad_id, self.seqlen)
-                p_batch = add_padding(p_batch, self.pad_id, self.seqlen)
+                b_query = add_padding(b_query, self.pad_id, self.seqlen)
+                b_passage = add_padding(b_passage, self.pad_id, self.seqlen)
+
+                # operate
+                b_ops = [self._loss, self._accuracy, self._train_step]
+                feed_dict = {self.query_input: b_query, self.passage_input: b_passage, self.target_input: b_label}
+                b_loss, b_acc, _ = self.sess.run(b_ops, feed_dict)
+
+                batch_loss.append(b_loss)
+                batch_accuracy.append(b_acc)
 
                 if self.global_step != 0 and self.global_step % self.save_freq == 0:
                     self.save_model()
 
                 self.global_step += 1
+
+            # once all the batches are done
+            mean_loss = np.mean(batch_loss)
+            mean_acc = np.mean(batch_accuracy)
+
+            '''
+            == Add to Tensorboard output ==
+            Add the stats to tensorboard output. Note that there alead is a function self.merge_all but I don't know
+            how to use this.
+            '''
 
     def print_network(self):
         '''
