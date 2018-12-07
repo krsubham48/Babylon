@@ -13,6 +13,7 @@ Cheers!
 # importng the dependencies
 import numpy as np
 import tensorflow as tf # graph
+from utils import DatasetManager, add_padding
 
 # class
 
@@ -41,69 +42,116 @@ class TransformerNetwork(object):
         scope,
         model_name,
         save_folder,
+        pad_id,
         save_freq = 10,
         is_training = True,
         dim_model = 50,
         ff_mid = 128,
+        ff_mid1 = 128,
+        ff_mid2 = 128,
         num_stacks = 2,
-        num_heads = 6):
+        num_heads = 5):
         '''
         Args:
             scope: scope of graph
             model_name: name for model
             save_folder: folder for model saves
+            pad_id: integer of <PAD>
             save_freq: frequency of saving
             is_training: bool if network is in training mode
             dim_model: same as embedding dimension
-            ff_mid: dimension in middle layer of feed forward network
+            ff_mid: dimension in middle layer of inner feed forward network
+            ff_mid1: dimension in middle layer of outer feed forward network (L1)
+            ff_mid2: dimension in middle layer of outer feed forward network (L2)
             num_stacks: number of stacks to use
             num_heads: number of heads in SDPA
 
         '''
         self.scope = scope
         self.model_name = model_name
-        self.is_training = is_training
         self.save_folder = save_folder
+        self.pad_id = pad_id
         self.save_freq = save_freq
+        self.is_training = is_training
+    
+        self.dim_model = dim_model
+        self.ff_mid = ff_mid
+        self.ff_mid1 = ff_mid1
+        self.ff_mid2 = ff_mid2
+        self.num_stacks = num_stacks
+        self.num_heads = num_heads
 
         self.global_step = 0
 
-    def build_model(self, emb, seqlen, batch_size = 32):
+
+    def build_model(self, emb, seqlen, batch_size = 32, print_stack = False):
         '''
         function to build the model end to end
         '''
         self.batch_size = batch_size
         self.seqlen = seqlen
+        self.print_stack = print_stack
 
         with tf.variable_scope(self.scope):
             # declaring the placeholders
             self.query_input = tf.placeholder(tf.int32, [self.batch_size, self.seqlen], name = 'query_placeholder')
             self.passage_input = tf.placeholder(tf.int32, [self.batch_size, self.seqlen], name = 'passage_placeholder')
             self.target_input = tf.placeholder(tf.float32, [self.batch_size, 1], name = 'target_placeholder')
-
+            
             # embedding matrix placeholder
-            self.embedding_matrix = tf.constant(emb, name = 'embedding_matrix')
+            self.embedding_matrix = tf.constant(emb, name = 'embedding_matrix', dtype = tf.float32)
+            
+            if self.print_stack:
+                print('[!] Building model...')
+                print('[*] self.query_input:', self.query_input)
+                print('[*] self.passage_input:', self.passage_input)
+                print('[*] self.target_input:', self.target_input)
+                print('[*] embedding_matrix:', self.embedding_matrix)
 
             # now we need to add the padding in the computation graph
+            # masking
+            query_mask = self.construct_padding_mask(self.query_input)   
+            passage_mask = self.construct_padding_mask(self.passage_input)
+            
+            if self.print_stack:
+                print('[*] query_mask:', query_mask)
+                print('[*] passage_mask:', passage_mask)
+            
+            # lookup from embedding matrix
             query_emb = self.get_embedding(self.embedding_matrix, self.query_input)
             passage_emb = self.get_embedding(self.embedding_matrix, self.passage_input)
-
+            
+            if self.print_stack:
+                print('[*] query_emb:', query_emb)
+                print('[*] passage_emb:', passage_emb)
+            
             # perform label smoothening on the labels
-            label_smooth = self.label_smoothening(self.target_input)
-
-            q_out = self.query_input
-            p_out = self.passage_input
+            # label_smooth = self.label_smoothning(self.target_input)
+            label_smooth = self.target_input
+            
+            # model
+            q_out = query_emb
+            p_out = passage_emb
             for i in range(self.num_stacks):
-                q_out = self.query_stack(q_in = q_out, mask = input_mask, scope = 'q_stk_{i}')
+                q_out = self.query_stack(q_in = q_out, mask = query_mask, scope = 'q_stk_{0}'.format(i))
+                if self.print_stack:
+                    print('[*] q_out ({0}):'.format(i), q_out)
                 p_out = self.passage_stack(p_in = p_out, q_out = q_out,
-                    input_mask = input_mask, target_mask = target_mask, scope = 'p_stk_{i}')
+                    query_mask = query_mask, passage_mask = passage_mask, scope = 'p_stk_{0}'.format(i))
+                if self.print_stack:
+                    print('[*] p_out ({0})'.format(i), p_out)
 
             # now the custom part
-            ff_out = tf.layers.dense(p_out, self.FINAL_ff_mid1, activation = tf.nn.relu)
-            ff_out = tf.layers.dense(ff_out, self.FINAL_ff_mid2)
-            logits = tf.layers.dense(ff_out, 1) # (batch_size, 1)
+            ff_out = tf.layers.dense(p_out, self.ff_mid1, activation = tf.nn.relu) # (batch_size, seqlen, emb_dim)
+            ff_out = tf.layers.dense(ff_out, 1, activation = tf.nn.relu) # (batch_size, seqlen, 1)
+            ff_out_reshaped = tf.reshape(ff_out, [-1, seqlen]) # (batch_size, seqlen)
+            self.pred = tf.layers.dense(ff_out_reshaped, 1) # (batch_size, 1)
+                
             if not self.is_training:
-                self.pred = tf.sigmoid(logits) # (batch_size, 1)
+                self.pred = tf.sigmoid(self.pred) # (batch_size, 1)
+                
+            if self.print_stack:
+                print('[*] predictions:', self.pred)
 
             # loss and accuracy
             self._accuracy = tf.reduce_sum(
@@ -111,11 +159,16 @@ class TransformerNetwork(object):
                 ) / self.batch_size
 
             self._loss = tf.reduce_mean(
-                tf.nn.sigmoid_cross_entropy_with_logits(labels = label_smooth, logits = logits)
+                tf.nn.sigmoid_cross_entropy_with_logits(labels = label_smooth, logits = self.pred)
                 )
 
             optim = tf.train.AdamOptimizer(beta1 = 0.9, beta2 = 0.98, epsilon = 1e-9)
             self._train = optim.minimize(self._loss)
+            
+            if self.print_stack:
+                print('[*] accuracy:', self._accuracy)
+                print('[*] loss:', self._loss)
+                print('... Done!')
 
         with tf.variable_scope(self.model_name + "_summary"):
             tf.summary.scalar("loss", self._loss)
@@ -134,7 +187,7 @@ class TransformerNetwork(object):
 
     ##### OPERATIONAL LAYERS #####
 
-    def get_embedding(emb, inp):
+    def get_embedding(self, emb, inp):
         '''
         get embeddings
         '''
@@ -154,11 +207,10 @@ class TransformerNetwork(object):
         '''
 
         qkt = tf.matmul(Q, tf.transpose(K, [0, 2, 1]))
-        qkt /= tf.sqrt(np.float32(self.dim_model // self.num_heads))
+        qkt /= tf.sqrt(float(self.dim_model // self.num_heads))
 
-        if mask:
-            # perform masking
-            qkt = tf.multiply(qkt, mask) + (1.0 - mask) * (-1e10)
+        # perform masking
+        qkt = tf.multiply(qkt, mask) + (1.0 - mask) * (-1e10)
 
         soft = tf.nn.softmax(qkt) # (num_heads * batch_size, q_size, k_size)
         soft = tf.layers.dropout(soft, training = self.is_training)
@@ -166,7 +218,7 @@ class TransformerNetwork(object):
 
         return out
 
-    def multihead_attention(self, query, key, value, mask = None, scope = 'attention'):
+    def multihead_attention(self, query, key, value, mask = None, scope = 'attn'):
         '''
         Multihead attention with masking option
         q_size = k_size = v_size = d_model/num_heads
@@ -178,6 +230,7 @@ class TransformerNetwork(object):
         '''
         with tf.variable_scope(scope):
             # linear projection blocks
+            # print(query)
             Q = tf.layers.dense(query, self.dim_model, activation = tf.nn.relu)
             K = tf.layers.dense(key, self.dim_model, activation = tf.nn.relu)
             V = tf.layers.dense(value, self.dim_model, activation = tf.nn.relu)
@@ -187,11 +240,10 @@ class TransformerNetwork(object):
             Q_reshaped = tf.concat(tf.split(Q, self.num_heads, axis = 2), axis = 0)
             K_reshaped = tf.concat(tf.split(K, self.num_heads, axis = 2), axis = 0)
             V_reshaped = tf.concat(tf.split(V, self.num_heads, axis = 2), axis = 0)
-            if mask:
-                mask = tf.tile(mask, [self.num_heads, 1, 1])
+            mask = tf.tile(mask, [self.num_heads, 1, 1])
 
             # scaled dot product attention
-            sdpa_out = sdpa(Q_reshaped, K_reshaped, V_reshaped, mask)
+            sdpa_out = self.sdpa(Q_reshaped, K_reshaped, V_reshaped, mask)
             out = tf.concat(tf.split(sdpa_out, self.num_heads, axis = 0), axis = 2)
 
             # final linear layer
@@ -219,6 +271,13 @@ class TransformerNetwork(object):
         out = tf.contrib.layers.layer_norm(x, center = True, scale = True)
         return out
 
+    def label_smoothning(self, x):
+        '''
+        perform label smoothning on the input label
+        '''
+        smoothed = (1.0 - self.ls_epsilon) * x + (self.ls_epsilon / vocab_size)
+        return smoothed
+
     ###### STACKS ######
 
     def query_stack(self, q_in, mask, scope):
@@ -229,12 +288,12 @@ class TransformerNetwork(object):
             mask: (batch_size, seqlen, seqlen)
         '''
         with tf.variable_scope(scope):
-            out = layer_norm(out + multihead_attention(q_in, q_in, q_in, mask))
-            out = layer_norm(out + feed_forward(out))
+            out = self.layer_norm(q_in + self.multihead_attention(q_in, q_in, q_in, mask))
+            out = self.layer_norm(out + self.feed_forward(out))
 
         return out
 
-    def passage_stack(self, p_in, q_out, input_mask, target_mask, scope):
+    def passage_stack(self, p_in, q_out, query_mask, passage_mask, scope):
         '''
         Single passage stack
         Args:
@@ -242,9 +301,9 @@ class TransformerNetwork(object):
             q_out: output from query stack
         '''
         with tf.variable_scope(scope):
-            out = layer_norm(p_in + multihead_attention(p_in, p_in, p_in, mask = target_mask))
-            out = layer_norm(out + multihead_attention(out, out, q_out, mask = input_mask))
-            out = layer_norm(out + feed_forward(out))
+            out = self.layer_norm(p_in + self.multihead_attention(p_in, p_in, p_in, mask = passage_mask))
+            out = self.layer_norm(out + self.multihead_attention(out, out, q_out, mask = query_mask, scope = 'attn2'))
+            out = self.layer_norm(out + self.feed_forward(out))
 
         return out
 
@@ -270,14 +329,22 @@ class TransformerNetwork(object):
     def make_tf_iterators(self, q, p, l):
         '''
         since loading via tensorflows build-in functions can significantly boost speed,
-        trying to make some here.
+        trying to make something similar here.
         '''
         pass
 
-    def make_basic_iterators(self, q, p, l):
+    def save_model(self):
+        '''
+        function to save the model
+        '''
+        save_path = self.save_folder + '/' + self.model_name + '.ckpt'
+        self.saver.save(self.sess, save_path)
 
-
-    def train(self, queries_, passage_, label_, num_epochs = 50):
+    def train(self,
+              queries_,
+              passage_,
+              label_,,
+              num_epochs = 50):
         '''
         This is the function used to train the model.
         Args:
@@ -285,22 +352,35 @@ class TransformerNetwork(object):
             passage_: numpy array for passages
             label_: numpy array for labels
         '''
-        # checks
-        assert len(queries_) == len(passage_) == len(label_)
-
         if not self.is_training:
-            raise ValueError("Config not up for training,", self.is_training)
+            raise Exception("Config not setup for training,", self.is_training)
+
+        # make the dataset manager to handle the datasets
+        dm = DatasetManager(queries_, passage_, label_)
+
+        # establish the saver 
+        self.sess = tf.Session()
+        self.sess.run(tf.global_variables_initializer())
+        self.saver = tf.train.Saver()
 
         for ep in range(num_epochs):
-            # for each epoch, go over the entire dataset once
+            for batch_num in dm.get_num_batches():
+                # for each epoch, go over the entire dataset once
+                q_batch, p_batch, l_batch = dm.get_batch(self.batch_size)
 
+                # pad the sequences
+                q_batch = add_padding(q_batch, self.pad_id, self.seqlen)
+                p_batch = add_padding(p_batch, self.pad_id, self.seqlen)
 
+                if self.global_step != 0 and self.global_step % self.save_freq == 0:
+                    self.save_model()
 
+                self.global_step += 1
 
-
-
-
-
-
-
-        
+    def print_network(self):
+        '''
+        Print the network in terms of 
+        '''
+        network_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope = self.scope)
+        for x in network_variables:
+            print(x)
