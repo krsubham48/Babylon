@@ -63,7 +63,7 @@ def cvt_srt2id(inp, word2idx, min_seqlen, max_seqlen):
     
     return None
 
-def save_data(q_buf, p_buf, l_buf = None, shfl = True, trn):
+def save_data(trn, q_buf, p_buf, l_buf = None, shfl = True):
     if trn:
         # shfl and trn or trn = shfl
         print("[!] Performing shuffling of data... (this may take some time)")
@@ -146,7 +146,7 @@ if __name__ == '__main__':
         line = file.readline()
         if not line:
             # if last then dump
-            save_data(query_buffer, passages_buffer, labels_buffer, args.shuffle, args.training_mode)
+            save_data(args.training_mode, query_buffer, passages_buffer, labels_buffer, args.shuffle)
             print("...this was the last dump, exiting from the loops now")
             break
 
@@ -170,7 +170,7 @@ if __name__ == '__main__':
         # if length of buffers exceeds given buffer size
         if len(query_buffer) == args.buffer_size:
 
-            save_data(query_buffer, passages_buffer, labels_buffer, args.shuffle, args.training_mode)
+            save_data(args.training_mode, query_buffer, passages_buffer, labels_buffer, args.shuffle)
 
             # reset buffer
             query_buffer = []

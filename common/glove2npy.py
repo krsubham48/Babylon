@@ -36,16 +36,6 @@ if __name__ == '__main__':
         all_words.append(str(word))
         embeddings_.append(embd)
 
-        # print(line_WE)
-
-        '''
-        if len(embeddings_) == 0:
-            embeddings_ = embd
-
-        else:
-            embeddings_ = np.append(embeddings_, embd)
-        '''
-
     # add unique tokens
     for i in range(args.num_unk):
         all_words.append('<UNK_{0}>'.format(i))
