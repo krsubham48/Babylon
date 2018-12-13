@@ -49,9 +49,20 @@ The transformer network has the following files:
 --results-path:   path to folder where saving results
 ```
 
-5. REDUNDANT, `model_config.py`: Configuration values to run the model and operate it end to end. Moved all the values to the network class making handling easier.
+5. `net_test.py`: Test file to check functionality of network file, dumps all the information in terminal. It has following arguments:
 
-6. REDUNDANT, `core_layers.py`: All the network layers to build the model. Moved all the functions into the network class, was becoming uselessly complicated.
+```
+--num-examples: number of examples
+--qp-factor:    num passages per query
+--vocab-size:   size of vocabulary
+--emb-dim:      embedding dimension
+--seqlen:       length of sequences
+--save-folder:  path to folder where saving model
+```
+
+6. REDUNDANT, `model_config.py`: Configuration values to run the model and operate it end to end. Moved all the values to the network class making handling easier.
+
+7. REDUNDANT, `core_layers.py`: All the network layers to build the model. Moved all the functions into the network class, was becoming uselessly complicated.
 
 There also are some jupyter notebooks in the `/notebooks` folder. They are merely used for quick prototyping and not the actual development of the model.
 
