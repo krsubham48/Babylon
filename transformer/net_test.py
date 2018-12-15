@@ -35,8 +35,8 @@ if not os.path.exists(args.save_folder):
 len_q = np.random.randint(low = 2, high = args.seqlen - 4, size = (int(args.num_examples/args.qp_factor)))
 queries_ = []
 for q in len_q:
-	query = [np.random.randint(args.vocab_size, size = (q))] * args.qp_factor
-	queries_.extend(query)
+  query = [np.random.randint(args.vocab_size, size = (q))] * args.qp_factor
+  queries_.extend(query)
 queries_ = np.array(queries_)
 del len_q # save memory
 print('[*] queries_:', queries_.shape)
@@ -51,9 +51,9 @@ print('[*] passage_:', passage_.shape)
 label_oh = np.random.randint(args.qp_factor, size = (int(args.num_examples/args.qp_factor)))
 label_ = []
 for i in label_oh:
-	l = np.zeros(args.qp_factor, dtype = np.int32).tolist()
-	l[i] = 1
-	label_.extend(l)
+  l = np.zeros(args.qp_factor, dtype = np.int32).tolist()
+  l[i] = 1
+  label_.extend(l)
 del label_oh # save memory
 label_ = np.array(label_)
 print('[*] label_:', label_.shape)

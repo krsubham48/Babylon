@@ -454,5 +454,8 @@ class TransformerNetwork(object):
             how to use this.
             '''
 
-        print(train_loss)
-        print(train_acc)
+            op = {"loss": train_loss[-1], "accuracy": train_acc[-1]}
+            print(f'[#] Epoch: {ep}, train_loss: {train_loss[-1]}, accuracy: {train_acc[-1]}')
+
+        # print(train_loss)
+        # print(train_acc)

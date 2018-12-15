@@ -7,9 +7,10 @@ be changed is the network file.
 '''
 
 # dependencies
-import argparse
-import numpy as np
-import os
+import argparse # argparse
+import numpy as np # linear algebra
+import os # OS 
+from glob import glob # file handling
 
 # custom model
 import network
@@ -31,9 +32,7 @@ def get_wordIds(filepath):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--p-file', type = str, help = 'path to passage numpy dump')
-    parser.add_argument('--q-file', type = str, help = 'path to query numpy dump')
-    parser.add_argument('--l-file', type = str, help = 'path to labels numpy dump')
+    parser.add_argument('--qpl-file', type = str, help = 'path to numpy dumps')
     parser.add_argument('--emb-file', type = str, help = 'path to ambedding matrix')
     parser.add_argument('--save-folder', type = str, default = './saved', help = 'path to folder where saving model')
     parser.add_argument('--num-epochs', type = int, default = 50, help = 'number fo epochs for training')
@@ -46,32 +45,46 @@ if __name__ == '__main__':
     Step 1: Before the models is built and setup, do the preliminary work
     '''
 
-    # modes
-    is_training = True # we are training the model here
-
     # make the folders
     if not os.path.exists(args.save_folder):
         os.makedirs(args.save_folder)
-        print('[!] Model saving folder could not be found, making folder ', args.save_folder)
+        print('[*] Model saving folder could not be found, making folder ', args.save_folder)
 
+    # We need to get the list of all the q, p and l files that were generated
+    q_paths = sort(glob(args.qpl_file + '_q*'))
+    p_paths = sort(glob(args.qpl_file + '_p*'))
+    l_paths = sort(glob(args.qpl_file + '_l*'))
 
     '''
     Step 2: All the checks are done, make the model
     '''
 
     # load the training numpy matrix
-    train_q = load_numpy_array(args.q_file)
-    train_p = load_numpy_array(args.p_file)
-    train_l = load_numpy_array(args.l_file)
+    for i in range(len(q_paths)):
+        if i == 0
+            train_q = load_numpy_array(q_paths[i])
+            train_p = load_numpy_array(p_paths[i])
+            train_l = load_numpy_array(l_paths[i])
+        else:
+            train_q = np.stack([train_q, load_numpy_array(q_paths[i])])
+            train_p = np.stack([train_p, load_numpy_array(p_paths[i])])
+            train_l = np.stack([train_l, load_numpy_array(l_paths[i])])
+
+    # reshape the matrices
+    train_q = np.reshape(train_q, [-1])
+    train_p = np.reshape(train_q, [-1])
+    train_l = np.reshape(train_l, [-1])
+    
+    # load embedding matrix
     embedding_matrix = load_numpy_array(args.emb_file)
 
     # load the model, this is one line that will be changed for each case
     model = network.TransformerNetwork(scope = args.model_name,
                                        save_folder = args.save_folder,
-                                       pad_id = pad_id,
+                                       pad_id = len(embedding_matrix),
                                        save_freq = args.save_freq,
-                                       is_training = is_training,
-                                       dim_model = 50,
+                                       is_training = True,
+                                       dim_model = embedding_matrix.shape[-1],
                                        ff_mid = 128,
                                        ff_mid1 = 128,
                                        ff_mid2 = 128,
@@ -79,7 +92,7 @@ if __name__ == '__main__':
                                        num_heads = 5)
 
     # build the model
-    model.build_model(embedding_matrix,
+    model.build_model(emb = embedding_matrix,
                       seqlen = seqlen,
                       print_stack = True)
 
