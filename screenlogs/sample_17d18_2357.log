@@ -1,0 +1,65 @@
+krsubham48@instance-1:~/Babylon/transformer$ python3 train.py --qpl-file=../procdata/e50u20s80 --emb-file=../procdata/emb50_20.npy --num-epochs=3 --model-name=t=./test --seqlen=80 --batch-size=512
+['../procdata/e50u20s80_q0.npy', '../procdata/e50u20s80_q1.npy', '../procdata/e50u20s80_q2.npy', '../procdata/e50u20s80_q3.npy', '../procdata/e50u20s80_q4.npy']
+['../procdata/e50u20s80_p0.npy', '../procdata/e50u20s80_p1.npy', '../procdata/e50u20s80_p2.npy', '../procdata/e50u20s80_p3.npy', '../procdata/e50u20s80_p4.npy']
+['../procdata/e50u20s80_l0.npy', '../procdata/e50u20s80_l1.npy', '../procdata/e50u20s80_l2.npy', '../procdata/e50u20s80_l3.npy', '../procdata/e50u20s80_l4.npy']
+[*] Data loading ...
+... loading file number: 0
+... loading file number: 1
+... loading file number: 2
+... loading file number: 3
+... loading file number: 4
+q shape: (4530544,)
+p shape: (4530544,)
+l shape: (4530544,)
+... loading embedding matrix
+[*] ... Data loading complete!
+[*] Making model
+[*] Building model (for details look at the stack below)
+[!] Building model...
+[*] self.query_input: Tensor("test/query_placeholder:0", shape=(512, 80), dtype=int32)
+[*] self.passage_input: Tensor("test/passage_placeholder:0", shape=(512, 80), dtype=int32)
+[*] self.target_input: Tensor("test/target_placeholder:0", shape=(512, 1), dtype=float32)
+[*] embedding_matrix: Tensor("test/embedding_matrix:0", shape=(400021, 50), dtype=float32)
+[*] query_mask: Tensor("test/Tile:0", shape=(512, 80, 80), dtype=float32)
+[*] passage_mask: Tensor("test/Tile_1:0", shape=(512, 80, 80), dtype=float32)
+[*] query_emb: Tensor("test/embedding_lookup/Identity:0", shape=(512, 80, 50), dtype=float32)
+[*] passage_emb: Tensor("test/embedding_lookup_1/Identity:0", shape=(512, 80, 50), dtype=float32)
+[*] q_out (0): Tensor("test/q_stk_0/LayerNorm_1/batchnorm/add_1:0", shape=(512, 80, 50), dtype=float32)
+[*] p_out (0) Tensor("test/p_stk_0/LayerNorm_2/batchnorm/add_1:0", shape=(512, 80, 50), dtype=float32)
+[*] q_out (1): Tensor("test/q_stk_1/LayerNorm_1/batchnorm/add_1:0", shape=(512, 80, 50), dtype=float32)
+[*] p_out (1) Tensor("test/p_stk_1/LayerNorm_2/batchnorm/add_1:0", shape=(512, 80, 50), dtype=float32)
+[*] predictions: Tensor("test/dense_2/BiasAdd:0", shape=(512, 1), dtype=float32)
+[*] accuracy: Tensor("test/truediv:0", shape=(), dtype=float32)
+[*] loss: Tensor("test/Mean:0", shape=(), dtype=float32)
+[!] ... Done!
+#### Training Model ####
+2018-12-17 18:13:30.240070: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
+2018-12-17 18:13:30.386517: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:964] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2018-12-17 18:13:30.386946: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1432] Found device 0 with properties: 
+name: Tesla P100-PCIE-16GB major: 6 minor: 0 memoryClockRate(GHz): 1.3285
+pciBusID: 0000:00:04.0
+totalMemory: 15.90GiB freeMemory: 15.52GiB
+2018-12-17 18:13:30.386977: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1511] Adding visible gpu devices: 0
+2018-12-17 18:13:30.758725: I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] Device interconnect StreamExecutor with strength 1 edge matrix:
+2018-12-17 18:13:30.758775: I tensorflow/core/common_runtime/gpu/gpu_device.cc:988]      0 
+2018-12-17 18:13:30.758784: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1001] 0:   N 
+2018-12-17 18:13:30.759143: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 15033 MB memory) -> physical GPU (device: 0, name: Tesla P100-PCIE-16GB, pci bus id: 0000:00:04.0, compute capability: 6.0)
+[*] Batch Shapes:
+b_query: (512, 80)
+b_passage: (512, 80)
+b_label: (512, 1)
+[#] Global Step: 1000, mean loss: 0.32460513710975647, mean accuracy: 0.8999457573676324
+[#] Global Step: 2000, mean loss: 0.31827685236930847, mean accuracy: 0.89994140625
+[#] Global Step: 3000, mean loss: 0.3169367015361786, mean accuracy: 0.90016796875
+[#] Global Step: 4000, mean loss: 0.3165469765663147, mean accuracy: 0.8996953125
+[#] Global Step: 5000, mean loss: 0.3140590786933899, mean accuracy: 0.90013671875
+[#] Global Step: 6000, mean loss: 0.3127639889717102, mean accuracy: 0.900205078125
+[#] Global Step: 7000, mean loss: 0.31203001737594604, mean accuracy: 0.90024609375
+[#] Global Step: 8000, mean loss: 0.31174901127815247, mean accuracy: 0.899951171875
+[#] Global Step: 8847, mean loss: 0.31362384557724, mean accuracy: 0.8995881604191264
+
+[!] Epoch: 0, train_loss: 0.3156568706035614, accuracy: 0.8999932894439421
+
+[#] Global Step: 9000, mean loss: 0.30850258469581604, mean accuracy: 0.9007352941176471
+
+krsubham48@instance-1:~/Babylon/transformer$
