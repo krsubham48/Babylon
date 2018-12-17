@@ -165,7 +165,7 @@ class TransformerNetwork(object):
             if self.print_stack:
                 print('[*] accuracy:', self._accuracy)
                 print('[*] loss:', self._loss)
-                print('... Done!')
+                print('[!] ... Done!')
 
         with tf.variable_scope(self.scope + "_summary"):
             tf.summary.scalar("loss", self._loss)
@@ -275,6 +275,18 @@ class TransformerNetwork(object):
         smoothed = (1.0 - self.ls_epsilon) * x + (self.ls_epsilon / vocab_size)
         return smoothed
 
+    def construct_padding_mask(self, inp):
+        '''
+        Args:
+            inp: Original input of word ids, shape: [batch_size, seqlen]
+        Returns:
+            a mask of shape [batch_size, seqlen, seqlen] where <pad> is 0 and others are 1
+        '''
+        seqlen = inp.shape.as_list()[1]
+        mask = tf.cast(tf.not_equal(inp, self.pad_id), tf.float32)
+        mask = tf.tile(tf.expand_dims(mask, 1), [1, seqlen, 1])
+        return mask 
+
     ###### STACKS ######
 
     def query_stack(self, q_in, mask, scope):
@@ -285,7 +297,8 @@ class TransformerNetwork(object):
             mask: (batch_size, seqlen, seqlen)
         '''
         with tf.variable_scope(scope):
-            out = self.layer_norm(q_in + self.multihead_attention(q_in, q_in, q_in, mask))
+            multi_head = self.multihead_attention(q_in, q_in, q_in, mask)
+            out = self.layer_norm(q_in + multi_head)
             out = self.layer_norm(out + self.feed_forward(out))
 
         return out
@@ -303,18 +316,6 @@ class TransformerNetwork(object):
             out = self.layer_norm(out + self.feed_forward(out))
 
         return out
-
-    def construct_padding_mask(self, inp):
-        '''
-        Args:
-            inp: Original input of word ids, shape: [batch_size, seqlen]
-        Returns:
-            a mask of shape [batch_size, seqlen, seqlen] where <pad> is 0 and others are 1
-        '''
-        seqlen = inp.shape.as_list()[1]
-        mask = tf.cast(tf.not_equal(inp, self.pad_id), tf.float32)
-        mask = tf.tile(tf.expand_dims(mask, 1), [1, seqlen, 1])
-        return mask
 
     '''
     MODEL FUNCTIONS
@@ -400,18 +401,32 @@ class TransformerNetwork(object):
         self.sess.run(tf.global_variables_initializer())
         self.saver = tf.train.Saver()
 
+        # train logs
+        train_loss = []
+        train_acc = []
+
         for ep in range(num_epochs):
             batch_loss = []
             batch_accuracy = []
 
             # iterate over all the batches
-            for batch_num in range(dm.get_num_batches()):
+            for batch_num in range(dm.get_num_batches(self.batch_size)):
                 # for each epoch, go over the entire dataset once
-                b_query, b_passage, b_label = dm.get_batch(self.batch_size)
+                b_query, b_passage, b_label = dm.get_batch(queries_, passage_, label_, self.batch_size)
 
                 # pad the sequences
                 b_query = add_padding(b_query, self.pad_id, self.seqlen)
                 b_passage = add_padding(b_passage, self.pad_id, self.seqlen)
+
+                # reshape
+                b_label = np.reshape(b_label, [-1, 1])
+
+                # print stats if
+                if ep == 0 and batch_num == 0:
+                    print('[*] Batch Shapes:')
+                    print('b_query:', b_query.shape)
+                    print('b_passage:', b_passage.shape)
+                    print('b_label:', b_label.shape)
 
                 # operate
                 b_ops = [self._loss, self._accuracy, self._train_step]
@@ -430,8 +445,17 @@ class TransformerNetwork(object):
             mean_loss = np.mean(batch_loss)
             mean_acc = np.mean(batch_accuracy)
 
+            train_loss.append(mean_loss)
+            train_acc.append(mean_acc)
+
             '''
             == Add to Tensorboard output ==
             Add the stats to tensorboard output. Note that there alead is a function self.merge_all but I don't know
             how to use this.
             '''
+
+            op = {"loss": train_loss[-1], "accuracy": train_acc[-1]}
+            print(f'[#] Epoch: {ep}, train_loss: {train_loss[-1]}, accuracy: {train_acc[-1]}')
+
+        # print(train_loss)
+        # print(train_acc)

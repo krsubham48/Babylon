@@ -8,38 +8,55 @@ Cheers!
 import numpy as np
 
 # classes
-
 class DatasetManager():
     '''
     Simple class for dataset handling, it has simple built in functions
     '''
     def __init__(self, d1, d2, d3):
-        self.d1 = d1
-        self.d2 = d2
-        self.d3 = d3
-        
+        # check of proper shape
         assert d1.shape[0] == d2.shape[0] == d3.shape[0]
         
+        self.num_samples = d1.shape[0]
         self.s_idx = 0
         self.e_idx = 0
         
         self.num_iterations = 0
 
+    '''
     def __del__(self):
         # delete the datasets 
         del self.d1, self.d2, self.d3
+    '''
+
+    def get_num_batches(self, batch_size):
+        num_batches = int(self.num_samples/batch_size)
+        return num_batches
         
-    def get_batch(self, batch_size):
+    def get_batch(self, d1, d2, d3, batch_size, loop_over = True):
         '''
         Get data of batch_size
         '''
-        if self.s_idx + batch_size > len(self.d1):
+        if self.s_idx + batch_size > len(d1):
             
             # this is the case for last turn
-            batch_d1 = self.d1[self.s_idx:]
-            batch_d2 = self.d2[self.s_idx:]
-            batch_d3 = self.d3[self.s_idx:]
-            
+            batch_d1 = d1[self.s_idx:]
+            batch_d2 = d2[self.s_idx:]
+            batch_d3 = d3[self.s_idx:]
+
+            # add leftovers
+            leftover_values = batch_size - self.num_samples + self.s_idx
+            # print(leftover_values)
+
+            batch_d1 = np.append(batch_d1, d1[:leftover_values])
+            batch_d2 = np.append(batch_d2, d2[:leftover_values])
+            batch_d3 = np.append(batch_d3, d3[:leftover_values])
+
+            '''
+            print(batch_d1.shape)
+            print(batch_d2.shape)
+            print(batch_d3.shape)
+            '''
+                        
             # update values
             self.s_idx = 0
             self.e_idx = 0
@@ -48,14 +65,14 @@ class DatasetManager():
         
         else:
             self.e_idx += batch_size
-            batch_d1 = self.d1[self.s_idx: self.e_idx]
-            batch_d2 = self.d2[self.s_idx: self.e_idx]
-            batch_d3 = self.d3[self.s_idx: self.e_idx]
+            batch_d1 = d1[self.s_idx: self.e_idx]
+            batch_d2 = d2[self.s_idx: self.e_idx]
+            batch_d3 = d3[self.s_idx: self.e_idx]
             self.s_idx += batch_size
             self.num_iterations += 1
             
             # checks
-            if self.s_idx == len(self.d1):
+            if self.s_idx == len(d1):
                 self.s_idx = 0
                 self.e_idx = 0
             
@@ -67,7 +84,6 @@ class DatasetManager():
 
 
 # functions
-
 def load_numpy_array(filepath):
 	'''
 	return loaded numpy array
@@ -92,6 +108,6 @@ def add_padding(inp, pad_id, seqlen):
             sequences = np.array([s])
             continue
         sequences = np.vstack((sequences, s[:seqlen]))
-        print(len(sequences))
+        # print(len(sequences))
     return sequences
 

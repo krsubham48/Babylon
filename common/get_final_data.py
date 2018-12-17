@@ -10,15 +10,20 @@ Output array: [<PAD>, <PAD> ... (seqlen - input_len), 32, 42, 1, 32, 54, 909 ]
 
 # importing the dependencies
 
-import argparse
-import numpy as np
-from sklearn.utils import shuffle
+import re # Regex
+import argparse # parsing arguments
+import numpy as np # linear algebra
+from sklearn.utils import shuffle # shuffling data
+
+'''
+NOTE: removed question words - what, why, who, where
+'''
 
 STOPWORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're",
             "you've", "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he',
             'him', 'his', 'himself', 'she', "she's", 'her', 'hers', 'herself', 'it', "it's",
-            'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which',
-            'who', 'whom', 'this', 'that', "that'll", 'these', 'those', 'am', 'is', 'are',
+            'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves',
+            'this', 'that', "that'll", 'these', 'those', 'am', 'is', 'are',
             'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do',
             'does', 'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because',
             'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against',
@@ -42,12 +47,15 @@ def get_word2idx(filepath):
     # get word2idx
     f = open(filepath)
     words = f.readlines()
-    word2idx = dict((w, i) for i,w in enumerate(words))
+    word2idx = dict((w.split('\n')[0], i) for i,w in enumerate(words))
+    # print(len(word2idx))
+    # print(word2idx['<UNK_9>'])
     return word2idx
 
-def cvt_srt2id(inp, word2idx, min_seqlen, max_seqlen):
+def cvt_srt2id(inp, word2idx, min_seqlen, max_seqlen, num_unk):
     # convert string to list of ID
-    words = re.split('\W', inp)
+    # print(inp)
+    words = re.split('\W', ' '.join(inp))
     words = [w for w in words if w and w not in STOPWORDS]
     sent_embd = []
     if min_seqlen <= len(words):
@@ -55,7 +63,7 @@ def cvt_srt2id(inp, word2idx, min_seqlen, max_seqlen):
             words = words[:max_seqlen]
         for w in words:
             if w not in word2idx:
-                w = '<UNK_{0}>'.format(str(np.random.randint(num_unk+1)))
+                w = '<UNK_{0}>'.format(str(np.random.randint(int(num_unk))))
             embd = word2idx[w]
             sent_embd.append(embd)
 
@@ -63,7 +71,7 @@ def cvt_srt2id(inp, word2idx, min_seqlen, max_seqlen):
     
     return None
 
-def save_data(q_buf, p_buf, l_buf = None, shfl = True, trn):
+def save_data(trn, q_buf, p_buf, l_buf = None, shfl = True):
     if trn:
         # shfl and trn or trn = shfl
         print("[!] Performing shuffling of data... (this may take some time)")
@@ -114,6 +122,7 @@ if __name__ == '__main__':
     parser.add_argument('--training-mode', type = bool, default = False, help = 'training mode')
     parser.add_argument('--input-file', type = str, help = 'path to text file')
     parser.add_argument('--output-name', type = str, default = './dump', help = 'output is output_name_xx.npy')
+    parser.add_argument('--words', type = str, help = 'path to words.txt file')
     
     # shuffling is only done when in training mode, there is no need to do it in evaluation mode
     # otherwise we will have to store the hashing as well
@@ -121,10 +130,10 @@ if __name__ == '__main__':
 
     parser.add_argument('--num-unk', type = str, default = 30, help = 'number of unique tokens')
     parser.add_argument('--buffer-size', type = int, default = 1000000, help = 'size of each buffer')
-    parser.add_argument('--max-qlen', type = int, default = 12, help = 'maximum query length')
-    parser.add_argument('--min-qlen', type = int, default = 2, help = 'minimum query length')
-    parser.add_argument('--max-plen', type = int, default = 80, help = 'maximum passage length')
-    parser.add_argument('--min-plen', type = int, default = 10, help = 'minimum passage length')
+
+    # sequence length is same for both
+    parser.add_argument('--max-len', type = int, default = 12, help = 'maximum length')
+    parser.add_argument('--min-len', type = int, default = 2, help = 'minimum length')
     args = parser.parse_args()
 
     '''
@@ -140,37 +149,47 @@ if __name__ == '__main__':
     num_line = 0
     num_buffer = 0
 
+    # get word2idx
+    print('[*] Getting word2idx...')
+    word2idx = get_word2idx(args.words)
+
+    print('[#] len word2idx:', len(word2idx))
+
     while True:
         num_line += 1
 
         line = file.readline()
         if not line:
             # if last then dump
-            save_data(query_buffer, passages_buffer, labels_buffer, args.shuffle, args.training_mode)
+            save_data(args.training_mode, query_buffer, passages_buffer, labels_buffer, args.shuffle)
             print("...this was the last dump, exiting from the loops now")
             break
 
+        # print(line)
+
         # If not the last line then proceed
-        tokens = line.split(' ').lower().split('\t')
-        query, passage = tokens[1], tokens[2]
-        if not args.training:
+        tokens = line.split('\t')
+        # print(tokens)
+        tokens = [t.lower() for t in tokens]
+        query, passage = tokens[1].split(' '), tokens[2].split(' ')
+        if args.training_mode:
             label = tokens[3]
 
         # convert strings to ID
-        query2ids = cvt_srt2id(query, word2idx, args.min_qlen, args.max_qlen)
-        passage2ids = cvt_srt2id(passage, word2idx, args.min_plen, args.max_plen)
+        query2ids = cvt_srt2id(query, word2idx, args.min_len, args.max_len, args.num_unk)
+        passage2ids = cvt_srt2id(passage, word2idx, args.min_len, args.max_len, args.num_unk)
 
         # add to data if conditions in cvt_srt2id satisfied
         if query2ids and passage2ids:
             query_buffer.append(query2ids)
             passages_buffer.append(passage2ids)
-            if not args.training:
+            if args.training_mode:
                 labels_buffer.append(float(label))
 
         # if length of buffers exceeds given buffer size
         if len(query_buffer) == args.buffer_size:
 
-            save_data(query_buffer, passages_buffer, labels_buffer, args.shuffle, args.training_mode)
+            save_data(args.training_mode, query_buffer, passages_buffer, labels_buffer, args.shuffle)
 
             # reset buffer
             query_buffer = []
