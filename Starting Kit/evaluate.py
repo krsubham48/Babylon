@@ -11,10 +11,10 @@ truth_dir = os.path.join(input_dir, 'ref')
 print(submit_dir, truth_dir)
 
 if not os.path.isdir(submit_dir):
-    print("%s doesn't exist" % submit_dir)
+    print("{0} doesn't exist".format(submit_dir))
 
 if not os.path.isdir(truth_dir):
-    print("%s doesn't exist" % truth_dir)
+    print("{0} doesn't exist".format(truth_dir))
 
 # if os.path.isdir(submit_dir) and os.path.isdir(truth_dir):
 if not os.path.exists(output_dir):
@@ -55,5 +55,5 @@ print(score)
 
 output_filename = os.path.join(output_dir, 'scores.txt')
 output_file = open(output_filename, 'w')
-output_file.write("Difference: %f" % score)
+output_file.write("Difference:", score)
 output_file.close()

@@ -38,15 +38,15 @@ This folder has following files: (RED) means redundant.
 2. `get_final_data.py`: The file to get the final data. Following is the list of arguments:
 
 ```
---training:     training mode (dumps labels also)
---text-file:    path to text file
+--training-mode: training mode
+--input-file:   path to text file
 --output-name:  output is output_name_xx.npy
+--words:        path to words.txt file
+--shuffle:      to shuffle the data
 --num-unk:      number of unique tokens
 --buffer-size:  size of each buffer
---max-querylen: maximum query length
---min-querylen: minimum query length
---max-passlen:  maximum passage length
---min-passlen:  minimum passage length
+--max-len:      maximum length
+--min-len:      minimum length
 ```
 
 3. `split_data.py`: (RED) The file to split and dump the data in smaller files of input number of lines. Following is the list of arguments:

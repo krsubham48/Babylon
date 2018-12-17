@@ -27,15 +27,17 @@ The transformer network has the following files:
 3. `train.py`: File to train the model using training files. It has following arguments: [Development]
 
 ```
---p-file:         path to passage numpy dump
---q-file:         path to query numpy dump
---l-file:         path to labels numpy dump
+--qpl-file:       path to numpy dumps
 --emb-file:       path to ambedding matrix
 --save-folder:    path to folder where saving model
 --num-epochs:     number fo epochs for training
 --model-name:     name of the model
 --val-split:      validation split ratio
 --save-frequency: save model after these steps
+--seqlen:         lenght of longest sequence
+--batch-size:     size of minibatch
+--thresh-upper:   upper threshold for dummy accuracy check
+--thresh-lower:   lower threshold for dummy accuracy check
 ```
 
 4. `eval.py`: File to run the model for obtaining results on evaluation file. It has following arguments: [Development]

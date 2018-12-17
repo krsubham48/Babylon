@@ -85,10 +85,10 @@ class DatasetManager():
 
 # functions
 def load_numpy_array(filepath):
-	'''
-	return loaded numpy array
-	'''
-	return np.load(filepath)
+    '''
+    return loaded numpy array
+    '''
+    return np.load(filepath)
 
 def add_padding(inp, pad_id, seqlen):
     '''
@@ -104,10 +104,19 @@ def add_padding(inp, pad_id, seqlen):
     for s in inp:
         if seqlen > len(s):
             s = np.append(arr = np.ones(seqlen - len(s)) * pad_id, values = s)
+        else:
+            s = s[:seqlen]
+
+        # check 
+        if len(s) != seqlen:
+            print('THE BUG IS FUCKING HERE...')
+            raise SystemExit
+
         if len(sequences) == 0:
             sequences = np.array([s])
             continue
-        sequences = np.vstack((sequences, s[:seqlen]))
-        # print(len(sequences))
+        
+        sequences = np.vstack((sequences, s))
+        
     return sequences
 

@@ -11,6 +11,7 @@ Cheers!
 '''
 
 # importng the dependencies
+from time import time
 import numpy as np
 import tensorflow as tf # graph
 from utils import DatasetManager, add_padding
@@ -43,7 +44,7 @@ class TransformerNetwork(object):
         save_folder,
         pad_id,
         is_training = True,
-        save_freq = 10,
+        save_freq = 5000,
         dim_model = 50,
         ff_mid = 128,
         ff_mid1 = 128,
@@ -81,7 +82,7 @@ class TransformerNetwork(object):
         self.global_step = 0
 
 
-    def build_model(self, emb, seqlen, batch_size = 32, print_stack = False):
+    def build_model(self, emb, seqlen, batch_size = 1024, print_stack = False):
         '''
         function to build the model end to end
         '''
@@ -354,6 +355,21 @@ class TransformerNetwork(object):
         for x in network_variables:
             print(x)
 
+    def calculate_accuracy(self, target, pred):
+        '''
+        Calculate accuracy for model
+        '''
+        # we are performing manual smoothening here
+        pred[pred >= self.smooth_thresh_upper] = 1.0
+        pred[pred <= self.smooth_thresh_lower] = 0.0
+
+        equal_val = 0
+        for p,t in zip(pred, target):
+            if p == t:
+                equal_val += 1
+
+        return equal_val/len(target)
+
     '''
     OPERATION
     =========
@@ -376,19 +392,24 @@ class TransformerNetwork(object):
         '''
         
         pass
+        
 
     def train(self,
               queries_,
               passage_,
               label_,
               num_epochs = 50,
-              val_split = 0.1):
+              val_split = 0.1,
+              display_results_after = 1000,
+              smooth_thresh_upper = 0.6,
+              smooth_thresh_lower = 0.2):
         '''
         This is the function used to train the model.
         Args:
             queries_: numpy array for queries
             passage_: numpy array for passages
             label_: numpy array for labels
+            num_epochs: number of epochs for training
         '''
         if not self.is_training:
             raise Exception("Config not setup for training,", self.is_training)
@@ -405,18 +426,34 @@ class TransformerNetwork(object):
         train_loss = []
         train_acc = []
 
+        # value thresh
+        self.smooth_thresh_upper = smooth_thresh_upper
+        self.smooth_thresh_lower = smooth_thresh_lower
+
         for ep in range(num_epochs):
             batch_loss = []
             batch_accuracy = []
 
+            # for display counters
+            display_loss = []
+            display_accuracy = []
+
             # iterate over all the batches
-            for batch_num in range(dm.get_num_batches(self.batch_size)):
+            num_batches = dm.get_num_batches(self.batch_size)
+            time_start = time()
+            for batch_num in range(num_batches):
                 # for each epoch, go over the entire dataset once
                 b_query, b_passage, b_label = dm.get_batch(queries_, passage_, label_, self.batch_size)
 
                 # pad the sequences
-                b_query = add_padding(b_query, self.pad_id, self.seqlen)
-                b_passage = add_padding(b_passage, self.pad_id, self.seqlen)
+                try:
+                    b_query = add_padding(b_query, self.pad_id, self.seqlen)
+                    b_passage = add_padding(b_passage, self.pad_id, self.seqlen)
+                except Exception as e:
+                    print(b_query)
+                    print(b_passage)
+                    print(b_query.shape)
+                    print(b_passage.shape)
 
                 # reshape
                 b_label = np.reshape(b_label, [-1, 1])
@@ -429,24 +466,37 @@ class TransformerNetwork(object):
                     print('b_label:', b_label.shape)
 
                 # operate
-                b_ops = [self._loss, self._accuracy, self._train_step]
+                b_ops = [self._loss, self._train_step, self.pred]
                 feed_dict = {self.query_input: b_query, self.passage_input: b_passage, self.target_input: b_label}
-                b_loss, b_acc, _ = self.sess.run(b_ops, feed_dict)
+                b_loss, _, b_pred = self.sess.run(b_ops, feed_dict)
 
                 batch_loss.append(b_loss)
+                b_acc = self.calculate_accuracy(target = b_label, pred = b_pred)
                 batch_accuracy.append(b_acc)
+
+                display_loss.append(b_loss)
+                display_accuracy.append(b_acc)
 
                 if self.global_step != 0 and self.global_step % self.save_freq == 0:
                     self.save_model()
 
+                if self.global_step != 0 and self.global_step % display_results_after == 0 or batch_num == num_batches - 1:
+                    d_mean_loss = np.mean(display_loss)
+                    d_mean_acc = np.mean(display_accuracy)
+                    time_end = time()
+                    print('[#] Global Step: {0}, mean loss: {1}, mean accuracy: {2}. Time taken for {3} examples: {4}'.format(self.global_step,
+                        d_mean_loss, d_mean_acc, self.batch_size*self.display_results_after, time_end - time_start))
+                    time_start = time()
+
+                    # reset
+                    display_accuracy = []
+                    display_loss = []
+
                 self.global_step += 1
 
             # once all the batches are done
-            mean_loss = np.mean(batch_loss)
-            mean_acc = np.mean(batch_accuracy)
-
-            train_loss.append(mean_loss)
-            train_acc.append(mean_acc)
+            train_loss.append(np.mean(batch_loss))
+            train_acc.append(np.mean(batch_accuracy))
 
             '''
             == Add to Tensorboard output ==
@@ -454,8 +504,6 @@ class TransformerNetwork(object):
             how to use this.
             '''
 
-            op = {"loss": train_loss[-1], "accuracy": train_acc[-1]}
-            print(f'[#] Epoch: {ep}, train_loss: {train_loss[-1]}, accuracy: {train_acc[-1]}')
+            print('\n[!] Epoch: {0}, train_loss: {1}, accuracy: {2}\n'.format(ep, train_loss[-1], train_acc[-1]))
 
-        # print(train_loss)
-        # print(train_acc)
+        print('... Done! Training complete exiting the model')
