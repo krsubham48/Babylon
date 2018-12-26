@@ -11,12 +11,13 @@ Cheers!
 '''
 
 # importng the dependencies
-from time import time
 import numpy as np
 import tensorflow as tf # graph
-from utils import DatasetManager, add_padding
+from tqdm import tqdm
+from time import time
 
-# class
+# custom
+from utils import DatasetManager, add_padding
 
 class TransformerNetwork(object):
     '''
@@ -144,9 +145,9 @@ class TransformerNetwork(object):
             ff_out = tf.layers.dense(ff_out, 1, activation = tf.nn.relu) # (batch_size, seqlen, 1)
             ff_out_reshaped = tf.reshape(ff_out, [-1, seqlen]) # (batch_size, seqlen)
             self.pred = tf.layers.dense(ff_out_reshaped, 1) # (batch_size, 1)
-                
-            if not self.is_training:
-                self.pred = tf.sigmoid(self.pred) # (batch_size, 1)
+            
+            # will be used for validation and gettign network output
+            self.net_op = tf.sigmoid(self.pred) # (batch_size, 1)
                 
             if self.print_stack:
                 print('[*] predictions:', self.pred)
@@ -332,7 +333,7 @@ class TransformerNetwork(object):
         '''
         pass
 
-    def load_model(self):
+    def load_frozen(self):
         '''
         Function to load the frozen graph of model and make the ops placeholders
         '''
@@ -359,16 +360,24 @@ class TransformerNetwork(object):
         '''
         Calculate accuracy for model
         '''
-        # we are performing manual smoothening here
-        pred[pred >= self.smooth_thresh_upper] = 1.0
-        pred[pred <= self.smooth_thresh_lower] = 0.0
+        # actual values
+        false_act_ = np.sum([target == self.smooth_thresh_lower])
+        true_act_ = np.sum([target == self.smooth_thresh_upper])
+        
+        # prediction counters
+        pred_pos_ = 0
+        pred_neg_ = 0
+        
+        # predictions, need to perform iteration, boolean logic not working
+        for i,p in enumerate(pred):
+            if self.s_ll <= p <= self.s_lu and target[i] == self.smooth_thresh_lower:
+                pred_neg_ += 1
+            elif self.s_ul <= p <= self.s_uu and target[i] == self.smooth_thresh_upper:
+                pred_pos_ += 1
+                
+        correct_pred = pred_pos_ + pred_neg_
 
-        equal_val = 0
-        for p,t in zip(pred, target):
-            if p == t:
-                equal_val += 1
-
-        return equal_val/len(target)
+        return correct_pred/len(pred), pred_pos_/true_act_, pred_neg_/false_act_
 
     '''
     OPERATION
@@ -377,22 +386,64 @@ class TransformerNetwork(object):
     Following functions are related to the operation of the model namely, training and evaluation
     '''
 
+    def close_sess(self):
+        self.sess.close()
+        
+    def start_sess_loader(self):
+        self.sess = tf.Session()
+        self.saver = tf.train.Saver()
+        self.saver.restore(self.sess, self.save_folder)
+
     def eval(self,
+             query_numbers_,
              queries_,
-             passage_,
-             query_ids,
-             file_path):
+             passage_):
         '''
         Function to run the model and store the results in file_path
         Args:
+            query_numbers_: IDs for corresponding queries, needed to store the results
             queries_: numpy array for queries
             passage_: numpy array for passages
-            query_ids: IDs for corresponding queries, needed to store the results
-            file_path: location of file to store results
         '''
+        if self.is_training:
+            raise SystemExit("config setup for training:", self.is_training)
         
-        pass
+        dm = DatasetManager(query_numbers_, queries_, passage_)
+
+        # load the model
+        self.sess = tf.Session()
+        self.saver = tf.train.Saver()
+        self.saver.restore(self.sess, self.save_folder)
+
+        # results list
+        qn_list = []
+        results = []
+
+        # iterate and get results
+        num_batches = dm.get_num_batches(self.batch_size)
         
+        print('[!] Number of pairs processed:',num_batches * self.batch_size)
+
+        for i in tqdm(range(num_batches)):
+            b_qn, b_query, b_passage = dm.get_batch(query_numbers_, queries_, passage_, self.batch_size)
+
+            # perform padding
+            try:
+                b_query = add_padding(b_query, self.pad_id, self.seqlen)
+                b_passage = add_padding(b_passage, self.pad_id, self.seqlen)
+            except Exception as e:
+                print(b_query)
+                print(b_passage)
+                print(b_query.shape)
+                print(b_passage.shape)
+
+            # get predictions
+            preds = self.sess.run(self.net_op, {self.query_input: b_query, self.passage_input: b_passage})
+            results.append(preds)
+            qn_list.append(b_qn)
+
+        # return the results
+        return qn_list, results
 
     def train(self,
               queries_,
@@ -401,8 +452,9 @@ class TransformerNetwork(object):
               num_epochs = 50,
               val_split = 0.1,
               display_results_after = 1000,
-              smooth_thresh_upper = 0.6,
-              smooth_thresh_lower = 0.2):
+              jitter = 0.05,
+              smooth_thresh_upper = 0.8,
+              smooth_thresh_lower = 0.15):
         '''
         This is the function used to train the model.
         Args:
@@ -427,8 +479,15 @@ class TransformerNetwork(object):
         train_acc = []
 
         # value thresh
-        self.smooth_thresh_upper = smooth_thresh_upper
         self.smooth_thresh_lower = smooth_thresh_lower
+        self.smooth_thresh_upper = smooth_thresh_upper
+        self.s_ll = smooth_thresh_lower - jitter # smooth lower - lower
+        self.s_lu = smooth_thresh_upper + jitter # smooth lower - upper
+        self.s_ul = smooth_thresh_upper - jitter # smooth upper - lower
+        self.s_uu = smooth_thresh_upper + jitter # smooth upper - upper
+        
+        # counter
+        global_step_prev = 0
 
         for ep in range(num_epochs):
             batch_loss = []
@@ -437,11 +496,13 @@ class TransformerNetwork(object):
             # for display counters
             display_loss = []
             display_accuracy = []
+            d_pos = []
+            d_neg = []
 
             # iterate over all the batches
             num_batches = dm.get_num_batches(self.batch_size)
             time_start = time()
-            for batch_num in range(num_batches):
+            for batch_num in tqdm(range(num_batches)):
                 # for each epoch, go over the entire dataset once
                 b_query, b_passage, b_label = dm.get_batch(queries_, passage_, label_, self.batch_size)
 
@@ -471,11 +532,13 @@ class TransformerNetwork(object):
                 b_loss, _, b_pred = self.sess.run(b_ops, feed_dict)
 
                 batch_loss.append(b_loss)
-                b_acc = self.calculate_accuracy(target = b_label, pred = b_pred)
-                batch_accuracy.append(b_acc)
+                b_acc, b_pos, b_neg = self.calculate_accuracy(target = b_label, pred = b_pred)
+                batch_accuracy.append((b_acc, b_pos, b_neg))
 
                 display_loss.append(b_loss)
                 display_accuracy.append(b_acc)
+                d_pos.append(b_pos)
+                d_neg.append(b_neg)
 
                 if self.global_step != 0 and self.global_step % self.save_freq == 0:
                     self.save_model()
@@ -483,20 +546,27 @@ class TransformerNetwork(object):
                 if self.global_step != 0 and self.global_step % display_results_after == 0 or batch_num == num_batches - 1:
                     d_mean_loss = np.mean(display_loss)
                     d_mean_acc = np.mean(display_accuracy)
+                    d_mean_pos = np.mean(d_pos)
+                    d_mean_neg = np.mean(d_neg)
                     time_end = time()
-                    print('[#] Global Step: {0}, mean loss: {1}, mean accuracy: {2}. Time taken for {3} examples: {4}'.format(self.global_step,
-                        d_mean_loss, d_mean_acc, self.batch_size*self.display_results_after, time_end - time_start))
+                    print('[#] Global Step: {0}, Epoch: {1}'.format(self.global_step, ep))
+                    print('mean loss: {0}, mean accuracy: {1} [true positive:{2}, true negative: {3})]'.format(d_mean_loss,
+                                        d_mean_acc*100, d_mean_pos*100, d_mean_neg*100))
+                    print('Time taken for {0} examples: {1} seconds\n'.format(self.global_step - global_step_prev,
+                                                                             time_end - time_start))
                     time_start = time()
+                    global_step_prev = self.global_step
 
                     # reset
                     display_accuracy = []
                     display_loss = []
 
+                # update the global step
                 self.global_step += 1
 
             # once all the batches are done
-            train_loss.append(np.mean(batch_loss))
-            train_acc.append(np.mean(batch_accuracy))
+            train_loss.append(batch_loss)
+            train_acc.append(batch_accuracy)
 
             '''
             == Add to Tensorboard output ==
@@ -504,6 +574,19 @@ class TransformerNetwork(object):
             how to use this.
             '''
 
-            print('\n[!] Epoch: {0}, train_loss: {1}, accuracy: {2}\n'.format(ep, train_loss[-1], train_acc[-1]))
+            '''
+            # add validation support
+            # get validation values
+            val_acc, val_loss = self.validation()
+            '''
 
+            b_acc = np.sum(np.array(train_loss[-1]).T[0])
+            print('\n[!] Epoch: {0}, train_loss: {1}, accuracy: {2}\n'.format(ep, np.mean(train_loss[-1]), b_acc))
+
+        # save the model one last time
+        self.save_model()
+        self.sess.close()
         print('... Done! Training complete exiting the model')
+        
+        return train_loss, train_acc
+

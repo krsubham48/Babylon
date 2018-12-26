@@ -10,79 +10,145 @@ be changed is the network file.
 import argparse
 import numpy as np
 import os
+from glob import glob
 
 # custom model
 import network
+from utils import add_padding
 
-def load_numpy_array(filepath):
-    return np.load(filepath)
-
-def get_wordIds(filepath):
-    '''
-    read the text file to get all the words
-    convert to dictionary we do not need inverse dictionary
-    since we are not predicting words but merely similarity
-    '''
-    f = open(filepath)
-    words = f.readlines()
-    word2idx = dict((w, idx) for idx, w in enumerate(words))
-
-    f.close()
-    del words
-
-    return word2idx
+# batch iterator
+def get_batch(iteratable, n = 20):
+    iter_len = len(iteratable)
+    for ndx in range(0, iter_len, n):
+        temp = iteratable[ndx:min(ndx + n, iter_len)]
+        if len(temp) < n:
+            temp = iteratable[ndx:min(ndx + n, iter_len)].copy()
+            gap = n - len(temp)
+            temp.extend(iteratable[:gap])
+        yield temp
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--eval-file', type = str, help = 'path to evaluation file')
+    parser.add_argument('--qnqp-file', type = str, help = 'path to numpy dumps')
     parser.add_argument('--embedding-path', type = str, help = 'path to embedding .npy file')
-    parser.add_argument('--all-words', type = str, help = 'path to words.txt file')
-    parser.add_argument('--query-ids', type = str, help = 'path to list of IDs for query and passages')
     parser.add_argument('--model-path', type = str, help = 'path to folder where saving model')
     parser.add_argument('--results-path', type = str, help = 'path to folder where saving results')
+    parser.add_argument('--model-name', type = str, default = 'final1', help = 'scope name')
+    parser.add_argument('--batch-size', type = int, default = 1024, help = 'size of minibatch')
+    parser.add_argument('--seqlen', type = int, default = 80, help = 'length of sequences')
     args = parser.parse_args()
 
     '''
     Step 1: Before the models is built and setup, do the preliminary work
     '''
 
-    # modes
-    is_training = False # we are training the model here
-
     # make the folders
-    if not os.path.exists(args.save_folder):
-        os.makedirs(args.save_folder)
-        print('[!] Model saving folder could not be found, making folder, {args.save_folder}')
+    if not os.path.exists(args.results_path):
+        os.makedirs(args.results_path)
+        print('[!] Model saving folder could not be found, making folder, {args.results_path}')
+
+
+    # We need to get the list of all the q, p and l files that were generated
+    qn_paths = sorted(glob(args.qnqp_file + '_n*.npy'))
+    q_paths = sorted(glob(args.qnqp_file + '_q*.npy'))
+    p_paths = sorted(glob(args.qnqp_file + '_p*.npy'))
+
+    print(qn_paths)
+    print(q_paths)
+    print(p_paths)
 
     '''
     Step 2: All the checks are done, make the model
     '''
 
+    print('[*] Data loading ...')
     # load the training numpy matrix
-    train_q = load_numpy_array(args.q_file)
-    train_p = load_numpy_array(args.p_file)
-    train_l = load_numpy_array(args.l_file)
-    embedding_matrix = load_numpy_array(args.emb_file)
+    for i in range(len(q_paths)):
+        print('... loading file number:', i)
+        if i == 0:
+            eval_qn = np.load(qn_paths[i])
+            eval_q = np.load(q_paths[i])
+            eval_p = np.load(p_paths[i])
+        else:
+            q_ = np.load(qn_paths[i])
+            p_ = np.load(q_paths[i])
+            l_ = np.load(p_paths[i])
+            eval_qn = np.concatenate([eval_qn, q_])
+            eval_q = np.concatenate([eval_q, p_])
+            eval_p = np.concatenate([eval_p, l_])
+    
+    # load embedding matrix
+    print('... loading embedding matrix')
+    embedding_matrix = np.load(args.embedding_path)
+
+    print('[*] ... Data loading complete!')
 
     # load the model, this is one line that will be changed for each case
+    print('[*] Making model')
     model = network.TransformerNetwork(scope = args.model_name,
-                                       save_folder = args.save_folder,
-                                       pad_id = pad_id,
-                                       is_training = is_training,
-                                       dim_model = 50,
-                                       ff_mid = 128,
-                                       ff_mid1 = 128,
-                                       ff_mid2 = 128,
-                                       num_stacks = 2,
-                                       num_heads = 5)
+                                       save_folder = args.model_path,
+                                       pad_id = len(embedding_matrix),
+                                       is_training = False,
+                                       dim_model = embedding_matrix.shape[-1])
+
+    # build the model
+    print('[*] Building model (for details look at the stack below)')
+    model.build_model(emb = embedding_matrix,
+                      seqlen = args.seqlen,
+                      batch_size = args.batch_size,
+                      print_stack = True)
+
+    print('[*] Loading the model from saved weights')
+    model.start_sess_loader()
 
     '''
-    Step 3: Train the model
+    Step 3: get results from model
     '''
+    # make an index range
+    idx_ = np.arange(len(qn_)).tolist()
 
-    # train the model
-    model.eva(queries_ = train_q,
-              passage_ = train_p,
-              query_ids = args.query_ids,
-              output_file = args.results_path)
+    # make list of results
+    all_preds = []
+
+    num_batches = 0
+    proc_batches = 0
+
+    for _ in get_batch(idx_, n = 512):
+        num_batches += 1
+        
+    print('[!] number of batches:', num_batches)
+
+    # iterate
+    for x in get_batch(idx_, n = 512):
+        proc_batches += 1
+        q = add_padding(queries_[x], model.pad_id, 80)
+        p = add_padding(passages_[x], model.pad_id, 80)
+        
+        feed_dict = {model.query_input: q, model.passage_input: p}
+        preds = model.sess.run(model.net_op, feed_dict = feed_dict)
+        all_preds.append(preds)
+
+    '''
+    Step 4: convert to proper list and write the answers.tsv file
+    '''
+    all_pred_ = np.reshape(all_preds, [-1])
+    all_pred_ = all_pred_[:len(qn_)]
+    all_pred_ = np.reshape(all_pred_, [-1, 10])
+
+    # converting to the required dump format
+    res_path = '../final1_saves/res1/final_26.tsv'
+
+    # first convert the entirity to text
+    text = ''
+    for i in range(len(all_pred_)):
+        tt = str(int(qn_[i*10]))
+        for p in all_pred_[i]:
+            tt += '\t' + ("%.6f" % p)
+        tt += '\n'
+        text += tt
+        
+    with open(res_path, 'w') as f:
+        f.write(text)
+
+    print('... Done! File saved at:', res_path)
 

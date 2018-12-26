@@ -1,0 +1,90 @@
+krsubham48@instance-1:~/Babylon/transformer$ python3 train.py --qpl-file=../procdata/e50u20s80 --emb-file=../procdata/emb50_20.npy --num-epochs=3 --model-name=final1 --save-folder=./final1_saves --seqlen=80 --batch-size=512
+[*] Model saving folder could not be found, making folder  ./final1_saves
+['../procdata/e50u20s80_q0.npy', '../procdata/e50u20s80_q1.npy', '../procdata/e50u20s80_q2.npy', '../procdata/e50u20s80_q3.npy', '../procdata/e50u20s80_q4.npy']
+['../procdata/e50u20s80_p0.npy', '../procdata/e50u20s80_p1.npy', '../procdata/e50u20s80_p2.npy', '../procdata/e50u20s80_p3.npy', '../procdata/e50u20s80_p4.npy']
+['../procdata/e50u20s80_l0.npy', '../procdata/e50u20s80_l1.npy', '../procdata/e50u20s80_l2.npy', '../procdata/e50u20s80_l3.npy', '../procdata/e50u20s80_l4.npy']
+[*] Data loading ...
+... loading file number: 0
+... loading file number: 1
+... loading file number: 2
+... loading file number: 3
+... loading file number: 4
+q shape: (4530544,)
+p shape: (4530544,)
+l shape: (4530544,)
+... loading embedding matrix
+[*] ... Data loading complete!
+[*] Making model
+[*] Building model (for details look at the stack below)
+[!] Building model...
+[*] self.query_input: Tensor("final1/query_placeholder:0", shape=(512, 80), dtype=int32)
+[*] self.passage_input: Tensor("final1/passage_placeholder:0", shape=(512, 80), dtype=int32)
+[*] self.target_input: Tensor("final1/target_placeholder:0", shape=(512, 1), dtype=float32)
+[*] embedding_matrix: Tensor("final1/embedding_matrix:0", shape=(400021, 50), dtype=float32)
+[*] query_mask: Tensor("final1/Tile:0", shape=(512, 80, 80), dtype=float32)
+[*] passage_mask: Tensor("final1/Tile_1:0", shape=(512, 80, 80), dtype=float32)
+[*] query_emb: Tensor("final1/embedding_lookup/Identity:0", shape=(512, 80, 50), dtype=float32)
+[*] passage_emb: Tensor("final1/embedding_lookup_1/Identity:0", shape=(512, 80, 50), dtype=float32)
+[*] q_out (0): Tensor("final1/q_stk_0/LayerNorm_1/batchnorm/add_1:0", shape=(512, 80, 50), dtype=float32)
+[*] p_out (0) Tensor("final1/p_stk_0/LayerNorm_2/batchnorm/add_1:0", shape=(512, 80, 50), dtype=float32)
+[*] q_out (1): Tensor("final1/q_stk_1/LayerNorm_1/batchnorm/add_1:0", shape=(512, 80, 50), dtype=float32)
+[*] p_out (1) Tensor("final1/p_stk_1/LayerNorm_2/batchnorm/add_1:0", shape=(512, 80, 50), dtype=float32)
+[*] predictions: Tensor("final1/dense_2/BiasAdd:0", shape=(512, 1), dtype=float32)
+[*] accuracy: Tensor("final1/truediv:0", shape=(), dtype=float32)
+[*] loss: Tensor("final1/Mean:0", shape=(), dtype=float32)
+[!] ... Done!
+#### Training Model ####
+2018-12-18 08:21:52.389549: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
+2018-12-18 08:21:52.767910: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:964] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2018-12-18 08:21:52.768349: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1432] Found device 0 with properties: 
+name: Tesla P100-PCIE-16GB major: 6 minor: 0 memoryClockRate(GHz): 1.3285
+pciBusID: 0000:00:04.0
+totalMemory: 15.90GiB freeMemory: 15.52GiB
+2018-12-18 08:21:52.768396: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1511] Adding visible gpu devices: 0
+2018-12-18 08:21:54.495021: I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] Device interconnect StreamExecutor with strength 1 edge matrix:
+2018-12-18 08:21:54.495074: I tensorflow/core/common_runtime/gpu/gpu_device.cc:988]      0 
+2018-12-18 08:21:54.495085: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1001] 0:   N 
+2018-12-18 08:21:54.495492: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1115] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 15033 MB memory) -> physical GPU (device: 0, name: Tesla P100-PCIE-16GB, pci bus id: 0000:00:04.0, compute capability: 6.0)
+[*] Batch Shapes:
+b_query: (512, 80)
+b_passage: (512, 80)
+b_label: (512, 1)
+[#] Global Step: 1000, mean loss: 0.3249013423919678, mean accuracy: 0.898931146978022
+[#] Global Step: 2000, mean loss: 0.3181151747703552, mean accuracy: 0.89994140625
+[#] Global Step: 3000, mean loss: 0.31684017181396484, mean accuracy: 0.900162109375
+[#] Global Step: 4000, mean loss: 0.31643229722976685, mean accuracy: 0.899693359375
+[#] Global Step: 5000, mean loss: 0.3139819800853729, mean accuracy: 0.90013671875
+[#] Global Step: 6000, mean loss: 0.3127666115760803, mean accuracy: 0.900205078125
+[#] Global Step: 7000, mean loss: 0.3122144937515259, mean accuracy: 0.900244140625
+[#] Global Step: 8000, mean loss: 0.31199225783348083, mean accuracy: 0.899951171875
+[#] Global Step: 8847, mean loss: 0.3140459954738617, mean accuracy: 0.8995881604191264
+
+[!] Epoch: 0, train_loss: 0.3157285749912262, accuracy: 0.8998773999067586
+
+[#] Global Step: 9000, mean loss: 0.30935895442962646, mean accuracy: 0.9007352941176471
+[#] Global Step: 10000, mean loss: 0.31021782755851746, mean accuracy: 0.899751953125
+[#] Global Step: 11000, mean loss: 0.30945709347724915, mean accuracy: 0.8999296875
+[#] Global Step: 12000, mean loss: 0.30999958515167236, mean accuracy: 0.9001484375
+[#] Global Step: 13000, mean loss: 0.30994367599487305, mean accuracy: 0.9000078125
+[#] Global Step: 14000, mean loss: 0.30873632431030273, mean accuracy: 0.9002265625
+[#] Global Step: 15000, mean loss: 0.30938956141471863, mean accuracy: 0.899859375
+[#] Global Step: 16000, mean loss: 0.3084264397621155, mean accuracy: 0.900240234375
+[#] Global Step: 17000, mean loss: 0.3081423342227936, mean accuracy: 0.900318359375
+[#] Global Step: 17695, mean loss: 0.3117942214012146, mean accuracy: 0.8991625449640288
+
+[!] Epoch: 1, train_loss: 0.30948710441589355, accuracy: 0.9000014568970389
+
+[#] Global Step: 18000, mean loss: 0.30453354120254517, mean accuracy: 0.9011846823770492
+[#] Global Step: 19000, mean loss: 0.3076591491699219, mean accuracy: 0.899576171875
+[#] Global Step: 20000, mean loss: 0.3073614239692688, mean accuracy: 0.89986328125
+[#] Global Step: 21000, mean loss: 0.30823832750320435, mean accuracy: 0.9000546875
+[#] Global Step: 22000, mean loss: 0.30782219767570496, mean accuracy: 0.899791015625
+[#] Global Step: 23000, mean loss: 0.30620792508125305, mean accuracy: 0.90045703125
+[#] Global Step: 24000, mean loss: 0.30689629912376404, mean accuracy: 0.90016796875
+[#] Global Step: 25000, mean loss: 0.30694448947906494, mean accuracy: 0.899962890625
+[#] Global Step: 26000, mean loss: 0.3063717484474182, mean accuracy: 0.90033984375
+[#] Global Step: 26543, mean loss: 0.31042954325675964, mean accuracy: 0.8989698434622467
+
+[!] Epoch: 2, train_loss: 0.30729514360427856, accuracy: 0.9000016776390145
+
+... Done! Training complete exiting the model
