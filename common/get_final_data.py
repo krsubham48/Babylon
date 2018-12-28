@@ -68,7 +68,7 @@ def cvt_srt2id(inp, word2idx, min_seqlen, max_seqlen, num_unk):
             sent_embd.append(embd)
 
         return sent_embd
-    
+
     return None
 
 def save_data(trn, q_buf, p_buf, l_buf = None, shfl = True):
