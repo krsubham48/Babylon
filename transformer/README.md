@@ -33,11 +33,13 @@ The transformer network has the following files:
 --num-epochs:     number fo epochs for training
 --model-name:     name of the model
 --val-split:      validation split ratio
+--ft-factor:      ratio of false samples to true samples (should be <= 9)
 --save-frequency: save model after these steps
 --seqlen:         lenght of longest sequence
 --batch-size:     size of minibatch
 --thresh-upper:   upper threshold for dummy accuracy check
 --thresh-lower:   lower threshold for dummy accuracy check
+--jitter:         helps in dummy accuracy calculation
 ```
 
 4. `eval.py`: File to run the model for obtaining results on evaluation file. It has following arguments: [Development]

@@ -28,6 +28,7 @@ if __name__ == '__main__':
         num_lines_processed += 1
         line = f.readline()
         if not line:
+            f.close()
             break
 
         tokens = line.split('\n')[0].split(' ')

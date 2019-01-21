@@ -12,7 +12,7 @@ class DatasetManager():
     '''
     Simple class for dataset handling, it has simple built in functions
     '''
-    def __init__(self, d1, d2, d3):
+    def __init__(self, d1, d2, d3, val_split = 0.1):
         # check of proper shape
         assert d1.shape[0] == d2.shape[0] == d3.shape[0]
         
@@ -21,6 +21,15 @@ class DatasetManager():
         self.e_idx = 0
         
         self.num_iterations = 0
+        self.val_split = val_split
+
+        # using reservoir sampling algorithm
+        k = int(len(d1) * val_split)
+        self.val_idx = np.arange(k)
+        for i in range(k, len(d1)):
+            j = np.random.randint(i)
+            if j < k:
+                self.val_idx[j] = i
 
     '''
     def __del__(self):
@@ -31,6 +40,9 @@ class DatasetManager():
     def get_num_batches(self, batch_size):
         num_batches = int(self.num_samples/batch_size)
         return num_batches
+
+    def get_val_batch(self, d1, d2, d3, batch_size, loop_over = True):
+        
         
     def get_batch(self, d1, d2, d3, batch_size, loop_over = True):
         '''

@@ -49,7 +49,18 @@ This folder has following files: (RED) means redundant.
 --min-len:      minimum length
 ```
 
-3. `split_data.py`: (RED) The file to split and dump the data in smaller files of input number of lines. Following is the list of arguments:
+3. `get_eval_data.py`: The file to get teh evaluation data dump. Following is the list of arguments:
+
+```
+--input-file:  path to text file
+--output-name: output is output_name_xx.npy
+--words:       path to words.txt file
+--num-unk:     number of unique tokens
+--buffer-size: size of each buffer
+--max-len:     maximum length
+```
+
+4. `split_data.py`: (RED) The file to split and dump the data in smaller files of input number of lines. Following is the list of arguments:
 
 ```
 --file-path:      path to training file
@@ -59,7 +70,7 @@ This folder has following files: (RED) means redundant.
 --randomize:      to randomise data. if True random points are selected
 ```
 
-4. `tex2ctf_mod.py`: (RED) The file to dump the data in Microsoft CNTK format. This is the modified version of file in `/baselines`. Following is the list of arguments:
+5. `tex2ctf_mod.py`: (RED) The file to dump the data in Microsoft CNTK format. This is the modified version of file in `/baselines`. Following is the list of arguments:
 
 ```
 --mode:           operation mode, FULL for complete dump, SAMPLE for first 3000 lines
